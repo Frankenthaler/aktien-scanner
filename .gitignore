@@ -1,0 +1,8 @@
+aktien_scanner.db
+demo.db
+test_*.db
+*.log
+scanner.log
+__pycache__/
+*.pyc
+.env
