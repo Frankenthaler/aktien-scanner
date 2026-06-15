@@ -1,0 +1,36 @@
+# requirements.txt — Aktien-Scanner V1
+#
+# Diese Datei wird von Streamlit Community Cloud beim Deployment automatisch
+# gelesen und installiert (pip install -r requirements.txt).
+#
+# Versionierung: Mindestversionen (>=) statt exakter Pins, da:
+#   - Streamlit Cloud regelmäßig die Python-Version aktualisiert
+#   - exakte Pins (==) bei abweichender Python-Version häufig zu
+#     Installationsfehlern führen (keine passenden Wheels verfügbar)
+#   - die hier verwendeten APIs (siehe Code) seit den Mindestversionen
+#     stabil sind
+#
+# Getestet in dieser Entwicklungsumgebung mit:
+#   pandas 3.0.2, numpy 2.4.4, streamlit 1.58.0, yfinance 1.4.1,
+#   pandas_market_calendars 5.4.0, apscheduler 3.11.2, anthropic 0.109.1,
+#   pytz 2026.2
+
+# Web-Frontend (Pflichtenheft Abschnitt 2)
+streamlit>=1.32
+
+# Datenverarbeitung
+pandas>=2.0
+numpy>=1.24
+
+# Marktdaten (Datenquelle Version 1, Master-Spezifikation Abschnitt 5)
+yfinance>=0.2.40
+
+# Marktkalender (data/calendar.py)
+pandas_market_calendars>=4.3
+pytz>=2024.1
+
+# Scheduler (scheduler.py — für lokalen Betrieb / manuelle Aktualisierung)
+apscheduler>=3.10
+
+# KI-Komponente (scoring/ai_summary.py, Phase 5)
+anthropic>=0.34
