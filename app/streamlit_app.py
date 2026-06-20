@@ -1,9 +1,9 @@
 """
-app/streamlit_app.py - Benutzeroberfläche
+app/streamlit_app.py - Benutzeroberflche
 Aktien-Scanner V1 - Phase 4 (Frontend)
 
 Seite 1 - Startseite:
-  Marktstatus, Datenstand, Schaltfläche "Daten aktualisieren",
+  Marktstatus, Datenstand, Schaltflche "Daten aktualisieren",
   Anzahl analysierter Aktien, Anzahl je Bewertungsstufe,
   Filter (Index, Bewertung), Top-20-Rangliste
 
@@ -14,7 +14,7 @@ Seite 2 - Detailseite:
 Ebene 4 (KI-Zusammenfassung) ist nicht Teil von Phase 4.
 
 Mobile-Anforderungen: kein horizontales Scrollen, responsive Tabellen,
-Ampelfarben Grün #2ecc71 / Gelb #f39c12 / Rot #e74c3c.
+Ampelfarben Grn #2ecc71 / Gelb #f39c12 / Rot #e74c3c.
 """
 
 import sys, os
@@ -52,7 +52,7 @@ RATING_COLORS = {
     "Kein Kauf": COLOR_RED,
 }
 
-# Erklärungstexte für Chart-Endkontrolle (Pflichtenheft 6.12, Ebene 3)
+# Erklrungstexte fr Chart-Endkontrolle (Pflichtenheft 6.12, Ebene 3)
 CHART_CHECKLIST = [
     {
         "frage": "Ist der Widerstand im Chart klar sichtbar?",
@@ -61,15 +61,15 @@ CHART_CHECKLIST = [
                        "nach oben abgeprallt ist? Genau dort liegt der Widerstand."
     },
     {
-        "frage": "Wirkt die Ausbruchskerze überzeugend?",
-        "erklaerung": "Eine überzeugende Ausbruchskerze ist eine große, grüne "
-                       "Kerze, die deutlich über den Widerstand hinausgeht und "
-                       "nahe ihrem Tageshoch schließt."
+        "frage": "Wirkt die Ausbruchskerze berzeugend?",
+        "erklaerung": "Eine berzeugende Ausbruchskerze ist eine groe, grne "
+                       "Kerze, die deutlich ber den Widerstand hinausgeht und "
+                       "nahe ihrem Tageshoch schliet."
     },
     {
-        "frage": "Ist das erhöhte Volumen im Chart sichtbar?",
+        "frage": "Ist das erhhte Volumen im Chart sichtbar?",
         "erklaerung": "Schau auf die Volumenbalken unter dem Chart. Am Tag des "
-                       "Ausbruchs sollte der Balken deutlich höher sein als an "
+                       "Ausbruchs sollte der Balken deutlich hher sein als an "
                        "den Tagen davor."
     },
     {
@@ -81,17 +81,17 @@ CHART_CHECKLIST = [
     },
     {
         "frage": "Hat die Aktie noch ausreichend Platz nach oben bis zum "
-                 "nächsten Widerstand?",
-        "erklaerung": "Prüfe im Chart, ob es oberhalb des aktuellen Kurses "
-                       "weitere Bereiche gibt, an denen die Aktie früher schon "
+                 "nchsten Widerstand?",
+        "erklaerung": "Prfe im Chart, ob es oberhalb des aktuellen Kurses "
+                       "weitere Bereiche gibt, an denen die Aktie frher schon "
                        "einmal gestoppt wurde. Wenig Platz bedeutet wenig "
                        "Potenzial nach oben."
     },
     {
         "frage": "Ist der vorgeschlagene Stop-Loss im Chart logisch platziert?",
-        "erklaerung": "Der Stop-Loss sollte unterhalb einer Unterstützung oder "
+        "erklaerung": "Der Stop-Loss sollte unterhalb einer Untersttzung oder "
                        "eines vorherigen Tiefpunkts liegen - nicht mitten in "
-                       "einem Bereich, in dem der Kurs häufig hin und her "
+                       "einem Bereich, in dem der Kurs hufig hin und her "
                        "pendelt."
     },
 ]
@@ -102,7 +102,7 @@ CHART_CHECKLIST = [
 # =============================================================================
 
 def format_datetime(value) -> str:
-    """Formatiert einen Zeitstempel für die Anzeige."""
+    """Formatiert einen Zeitstempel fr die Anzeige."""
     if value is None:
         return "-"
     if isinstance(value, str):
@@ -145,21 +145,21 @@ def regime_label(regime: str) -> str:
 
 def trend_ampel(row) -> str:
     """
-    Trend-Ampel für die Rangliste: kombiniert SMA200- und Breakout-Signal
-    zu einer einfachen Gesamteinschätzung.
+    Trend-Ampel fr die Rangliste: kombiniert SMA200- und Breakout-Signal
+    zu einer einfachen Gesamteinschtzung.
     """
     score_total = row.get("score_total")
     if score_total is None:
-        return "⚪"
+        return "o"
     if score_total >= 70:
-        return "🟢"
+        return "+"
     if score_total >= 55:
-        return "🟡"
-    return "🔴"
+        return "-"
+    return "x"
 
 
 def get_latest_update_timestamp() -> str | None:
-    """Ermittelt den Zeitpunkt der letzten Aktualisierung (jüngster Score-Eintrag)."""
+    """Ermittelt den Zeitpunkt der letzten Aktualisierung (jngster Score-Eintrag)."""
     df = get_latest_scores()
     if df.empty or "created_at" not in df.columns:
         return None
@@ -171,16 +171,16 @@ def get_latest_update_timestamp() -> str | None:
 
 def signal_status_symbol(score: int | None, max_punkte: int) -> str:
     """
-    Wandelt einen Signal-Score in ein einfaches ✓ / ~ / ✗-Symbol um.
-    >= 2/3 des Maximalwerts -> ✓, > 0 -> ~, == 0 -> ✗
+    Wandelt einen Signal-Score in ein einfaches / ~ / Symbol um.
+    >= 2/3 des Maximalwerts -> , > 0 -> ~, == 0 -> 
     """
     if score is None:
         return "?"
     if score >= max_punkte * (2 / 3):
-        return "✓"
+        return "Y"
     if score > 0:
         return "~"
-    return "✗"
+    return "N"
 
 
 # =============================================================================
@@ -189,7 +189,7 @@ def signal_status_symbol(score: int | None, max_punkte: int) -> str:
 
 st.set_page_config(
     page_title="Aktien-Scanner",
-    page_icon="📊",
+    page_icon="CHART",
     layout="centered",  # zentriert, schmal -> mobile-freundlich
     initial_sidebar_state="collapsed",
 )
@@ -242,7 +242,7 @@ def go_to_start():
 # =============================================================================
 
 def render_startseite():
-    st.title("📊 Aktien-Scanner")
+    st.title("Aktien-Scanner")
     st.caption("Swing-Trading-Kandidaten aus DAX, S&P 500 und Nasdaq 100")
 
     # -------------------------------------------------------------------
@@ -255,7 +255,7 @@ def render_startseite():
     if scores_df.empty:
         st.info(
             "Noch keine Daten vorhanden. Bitte zuerst auf "
-            "**"Daten aktualisieren“** tippen, um die erste Analyse zu starten."
+            "**Daten aktualisieren** tippen, um die erste Analyse zu starten."
         )
         col_dax, col_sp500 = None, None
         regime_dax, regime_sp500 = "keine_daten", "keine_daten"
@@ -294,9 +294,9 @@ def render_startseite():
 
     if regime_dax == "negativ" or regime_sp500 == "negativ":
         st.warning(
-            "⚠️ Der Markt befindet sich in einem ungünstigen Umfeld. "
+            "Der Markt befindet sich in einem ungnstigen Umfeld. "
             "Kaufsignale werden automatisch vorsichtiger bewertet "
-            "(maximale Bewertung: "Beobachten“)."
+            "(maximale Bewertung: Beobachten)."
         )
     elif regime_dax == "neutral" or regime_sp500 == "neutral":
         st.info(
@@ -310,12 +310,12 @@ def render_startseite():
     st.divider()
 
     last_update = get_latest_update_timestamp()
-    st.caption(f"🕐 Letzte Aktualisierung: {format_datetime(last_update)}")
+    st.caption(f"Letzte Aktualisierung: {format_datetime(last_update)}")
 
     # -------------------------------------------------------------------
-    # Schaltfläche "Daten aktualisieren"
+    # Schaltflche "Daten aktualisieren"
     # -------------------------------------------------------------------
-    if st.button("🔄 Daten aktualisieren", use_container_width=True, type="primary"):
+    if st.button("Daten aktualisieren", use_container_width=True, type="primary"):
         with st.spinner(
             "Daten werden aktualisiert ... Das kann je nach Anzahl der Aktien "
             "einige Minuten dauern."
@@ -329,22 +329,22 @@ def render_startseite():
 
                 if index_status == "error":
                     st.error(
-                        "⚠️ Indexliste konnte nicht vollständig geladen "
-                        "werden. Es konnten keine aktuellen Ticker für "
+                        "Indexliste konnte nicht vollstndig geladen "
+                        "werden. Es konnten keine aktuellen Ticker fr "
                         "DAX 40, S&P 500 oder Nasdaq 100 abgerufen werden. "
-                        "Die bestehende Aktienliste wurde NICHT verändert."
+                        "Die bestehende Aktienliste wurde NICHT verndert."
                     )
                 elif index_status == "partial":
                     fehlende = ", ".join(index_sync.get("failed_indices", []))
                     st.warning(
-                        f"⚠️ Indexliste konnte nicht vollständig geladen "
+                        f"Indexliste konnte nicht vollstndig geladen "
                         f"werden. Folgende Indizes fehlen: {fehlende}. "
-                        f"Die übrigen Indizes wurden aktualisiert."
+                        f"Die brigen Indizes wurden aktualisiert."
                     )
                 elif index_sync.get("fallback_used"):
                     fallback = ", ".join(index_sync["fallback_used"])
                     st.info(
-                        f"ℹ️ Für {fallback} wurde eine interne "
+                        f"Fr {fallback} wurde eine interne "
                         f"Reserveliste verwendet, da die aktuelle Liste "
                         f"nicht abgerufen werden konnte."
                     )
@@ -371,12 +371,12 @@ def render_startseite():
     st.divider()
 
     # -------------------------------------------------------------------
-    # Übersicht: Anzahl analysierter Aktien + je Bewertungsstufe
+    # bersicht: Anzahl analysierter Aktien + je Bewertungsstufe
     # -------------------------------------------------------------------
     if scores_df.empty:
         return
 
-    st.subheader("Übersicht")
+    st.subheader("bersicht")
     st.markdown(f"**{len(scores_df)}** Aktien wurden heute analysiert.")
 
     # Anzahl je Bewertungsstufe
@@ -436,7 +436,7 @@ def render_startseite():
     # Top-20-Rangliste
     # -------------------------------------------------------------------
     if filtered.empty:
-        st.info("Keine Aktien entsprechen den gewählten Filtern.")
+        st.info("Keine Aktien entsprechen den gewhlten Filtern.")
         return
 
     top20 = filtered.sort_values("score_total", ascending=False).head(20)
@@ -494,14 +494,14 @@ def render_detailseite():
     """Neue Detailansicht mit Swing-Trade-Fokus"""
     ticker = st.session_state.selected_ticker
 
-    if st.button("← Zurück zur Übersicht"):
+    if st.button("Zurck zur bersicht"):
         go_to_start()
         st.rerun()
 
     detail = get_score_detail(ticker)
 
     if detail is None:
-        st.error(f"Keine Daten für {ticker} gefunden.")
+        st.error(f"Keine Daten fr {ticker} gefunden.")
         return
 
     name = detail.get("name") or ticker
@@ -512,7 +512,7 @@ def render_detailseite():
         st.caption(ticker)
         st.warning(
             "Diese Aktie wird derzeit nicht bewertet, da sie sich nicht im "
-            "kurzfristigen Aufwärtstrend befindet (Kurs liegt unter dem "
+            "kurzfristigen Aufwrtstrend befindet (Kurs liegt unter dem "
             "50-Tage-Durchschnitt)."
         )
         return
@@ -531,8 +531,7 @@ def render_detailseite():
     
     # Handlungssignal
     color = RATING_COLORS.get(rating, COLOR_GRAY)
-    signal_emoji = {"Starkes Kaufsignal": "🟢", "Interessant": "🟢", "Beobachten": "🟡", "Kein Kauf": "🔴"}
-    emoji = signal_emoji.get(rating, "⚪")
+    emoji = "GREEN" if rating in ["Starkes Kaufsignal", "Interessant"] else "RED" if rating == "Kein Kauf" else "YELLOW"
     
     st.markdown(
         f'<div style="background-color:{color};color:white;padding:1rem;border-radius:8px;margin:1rem 0;text-align:center;">'
@@ -547,13 +546,13 @@ def render_detailseite():
     
     with col1:
         price = detail.get("price_close")
-        st.metric("Aktueller Kurs", f"{price:.2f} €" if price else "-")
+        st.metric("Aktueller Kurs", f"{price:.2f}" if price else "-")
     with col2:
         stop_buy = detail.get("stop_buy")
-        st.metric("Stop-Buy", f"{stop_buy:.2f} €" if stop_buy else "-")
+        st.metric("Stop-Buy", f"{stop_buy:.2f}" if stop_buy else "-")
     with col3:
         stop_loss = detail.get("stop_loss")
-        st.metric("Stop-Loss", f"{stop_loss:.2f} €" if stop_loss else "-")
+        st.metric("Stop-Loss", f"{stop_loss:.2f}" if stop_loss else "-")
     with col4:
         if price and stop_loss:
             risk_pct = abs((price - stop_loss) / price * 100)
@@ -566,16 +565,16 @@ def render_detailseite():
     with col1:
         kursziel = detail.get("kursziel")
         if kursziel:
-            st.metric("Kursziel 1", f"{kursziel:.2f} €")
+            st.metric("Kursziel 1", f"{kursziel:.2f}")
         else:
-            st.info("📍 Kursziel: Aktie zu nah am Hochpunkt. Einstieg nur über Stop-Buy.")
+            st.info("Kursziel: Aktie zu nah am Hochpunkt. Einstieg nur ber Stop-Buy.")
     with col2:
         st.metric("Kursziel 2", "-")
     with col3:
         if crv:
             st.metric("Chance/Risiko", f"{crv:.2f}")
         else:
-            st.info("📊 CRV: Nicht bestimmbar.")
+            st.info("CRV: Nicht bestimmbar.")
     
     # Metadaten
     col1, col2 = st.columns(2)
@@ -587,58 +586,58 @@ def render_detailseite():
     
     st.divider()
     
-    # Score-Aufschlüsselung
-    st.subheader("📊 Score-Aufschlüsselung")
+    # Score-Aufschlsselung
+    st.subheader("Score-Aufschlsselung")
     
     sma200_score = detail.get("score_sma200", 0)
     st.markdown(f"**SMA200:** {sma200_score} / 15 Punkte")
     if sma200_score == 15:
-        st.success("✓ Deutlich über 200er-Durchschnitt")
+        st.success("Deutlich ber 200er-Durchschnitt")
     elif sma200_score > 0:
-        st.info("~ Über 200er-Durchschnitt")
+        st.info("~ ber 200er-Durchschnitt")
     else:
-        st.error("✗ Unter 200er-Durchschnitt")
+        st.error("Unter 200er-Durchschnitt")
     st.divider()
     
     rs_score = detail.get("score_rs", 0)
-    st.markdown(f"**Relative Stärke:** {rs_score} / 25 Punkte")
+    st.markdown(f"**Relative Strke:** {rs_score} / 25 Punkte")
     if rs_score >= 20:
-        st.success("✓ Deutlich stärker als Markt")
+        st.success("Deutlich strker als Markt")
     elif rs_score > 0:
-        st.info("~ Stärker als Markt")
+        st.info("~ Strker als Markt")
     else:
-        st.error("✗ Schwächer als Markt")
+        st.error("Schwcher als Markt")
     st.divider()
     
     breakout_score = detail.get("score_breakout", 0)
     st.markdown(f"**Breakout:** {breakout_score} / 30 Punkte")
     if detail.get("breakout_flag"):
-        st.success(f"✓ Widerstand durchbrochen vor {breakout_age if breakout_age else 0} Tagen")
+        st.success(f"Widerstand durchbrochen vor {breakout_age if breakout_age else 0} Tagen")
     elif breakout_score > 0:
         st.info("~ Erste Ausbruchsanzeichen")
     else:
-        st.error("✗ Kein Breakout")
+        st.error("Kein Breakout")
     st.divider()
     
     regime = detail.get("regime")
     regime_score = detail.get("score_regime", 0)
     st.markdown(f"**Marktregime:** {regime_score} / 15 Punkte")
     if regime == "positiv":
-        st.success("✓ Markt im Aufwärtstrend")
+        st.success("Markt im Aufwrtstrend")
     elif regime == "neutral":
         st.info("~ Markt neutral")
     else:
-        st.error("✗ Markt im Abwärtstrend")
+        st.error("Markt im Abwrtstrend")
     st.divider()
     
     risk_score = detail.get("score_risk", 0)
     st.markdown(f"**Risiko / CRV:** {risk_score} / 15 Punkte")
     if crv and crv > 1.5:
-        st.success("✓ Hervorragendes CRV")
+        st.success("Hervorragendes CRV")
     elif crv and crv > 1:
-        st.success("✓ Gutes CRV")
+        st.success("Gutes CRV")
     elif crv:
-        st.warning("⚠ Schwaches CRV")
+        st.warning("Schwaches CRV")
     else:
         st.info("~ CRV nicht bestimmbar")
     
@@ -648,7 +647,7 @@ def render_detailseite():
     # EBENE 2 - TECHNISCHE DETAILS (aufklappbar)
     # ========================================================================
     
-    with st.expander("📋 Technische Details"):
+    with st.expander("Technische Details"):
         col1, col2 = st.columns(2)
         with col1:
             st.write(f"**Datum:** {detail.get('date', '-')}")
@@ -662,8 +661,8 @@ def render_detailseite():
     # EBENE 3 - CHART-ENDKONTROLLE (aufklappbar)
     # ========================================================================
     
-    with st.expander("✅ Chart-Endkontrolle"):
-        st.markdown("Bevor du kaufst, überprüfe diese Punkte im Chart:")
+    with st.expander("Chart-Endkontrolle"):
+        st.markdown("Bevor du kaufst, berprfe diese Punkte im Chart:")
         for i, item in enumerate(CHART_CHECKLIST, start=1):
             st.markdown(f"**{i}. {item['frage']}**")
 
