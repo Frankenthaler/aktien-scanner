@@ -32,6 +32,10 @@ from scheduler import run_full_update
 from scoring.ai_summary import generate_summary
 from config import RATING_THRESHOLDS
 
+from trading.recommendation_tracker import (
+    init_swing_trading_schema,
+    save_swing_trade_recommendation,
+)
 
 # =============================================================================
 # Konfiguration / Konstanten
@@ -746,3 +750,6 @@ if st.session_state.page == "detail" and st.session_state.selected_ticker:
     render_detailseite()
 else:
     render_startseite()
+
+if __name__ == "__main__":
+    init_swing_trading_schema()
