@@ -490,7 +490,12 @@ def render_startseite():
 # Seite 2 — Detailseite
 # =============================================================================
 
+# ============================================================================
+# NEUE DETAILANSICHT - Swing-Trade-orientiert
+# ============================================================================
+
 def render_detailseite():
+    """Neue Detailansicht mit Swing-Trade-Fokus"""
     ticker = st.session_state.selected_ticker
 
     if st.button("← Zurück zur Übersicht"):
@@ -505,256 +510,224 @@ def render_detailseite():
 
     name = detail.get("name") or ticker
 
-    # -------------------------------------------------------------------
-    # Hard-Filter-Fall: kein Score vorhanden
-    # -------------------------------------------------------------------
+    # Hard-Filter-Fall
     if detail.get("score_total") is None:
         st.title(name)
         st.caption(ticker)
         st.warning(
             "Diese Aktie wird derzeit nicht bewertet, da sie sich nicht im "
             "kurzfristigen Aufwärtstrend befindet (Kurs liegt unter dem "
-            "50-Tage-Durchschnitt). Sie erscheint deshalb nicht in der "
-            "Rangliste."
+            "50-Tage-Durchschnitt)."
         )
         return
 
     score_total = int(detail["score_total"])
     rating = detail["rating"]
-
-    # -------------------------------------------------------------------
-    # Ebene 1 — Einfache Ansicht
-    # -------------------------------------------------------------------
-    st.title(name)
-    st.caption(ticker)
-
+    
+    # ========================================================================
+    # EBENE 1 — SWING-TRADE HEADER (Oben prominent)
+    # ========================================================================
+    
+    st.title(f"{name} ({ticker})")
+    
+    # 1. HANDLUNGSSIGNAL
     color = RATING_COLORS.get(rating, COLOR_GRAY)
+    signal_emoji = {"Starkes Kaufsignal": "🟢", "Interessant": "🟢", "Beobachten": "🟡", "Kein Kauf": "🔴"}
+    emoji = signal_emoji.get(rating, "⚪")
+    
     st.markdown(
-        f'<div style="font-size:1.1rem;margin-bottom:0.5rem;">'
-        f'Score: <strong>{score_total}</strong> / 100 &nbsp;&nbsp; '
-        f'{ampel_html(color, rating)}'
+        f'<div style="background-color:{color};color:white;padding:1rem;border-radius:8px;margin:1rem 0;text-align:center;">'
+        f'<div style="font-size:2rem;font-weight:bold;">{emoji} {rating}</div>'
+        f'<div style="font-size:1.2rem;">Score: {score_total} / 100</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
-
-    st.markdown("**Warum diese Bewertung?**")
-
-    # Signalstatus in Alltagssprache
-    signal_texte = []
-
-    sma200_symbol = signal_status_symbol(detail.get("score_sma200"), 15)
-    if sma200_symbol == "✓":
-        signal_texte.append(("✓", "Die Aktie befindet sich im langfristigen Aufwärtstrend."))
-    elif sma200_symbol == "~":
-        signal_texte.append(("~", "Der langfristige Trend ist neutral."))
-    else:
-        signal_texte.append(("✗", "Die Aktie befindet sich nicht im langfristigen Aufwärtstrend."))
-
-    rs_symbol = signal_status_symbol(detail.get("score_rs"), 25)
-    if rs_symbol == "✓":
-        signal_texte.append(("✓", "Die Aktie ist stärker als der Gesamtmarkt."))
-    elif rs_symbol == "~":
-        signal_texte.append(("~", "Die Aktie entwickelt sich ähnlich wie der Gesamtmarkt."))
-    else:
-        signal_texte.append(("✗", "Die Aktie ist schwächer als der Gesamtmarkt."))
-
-    breakout_symbol = signal_status_symbol(detail.get("score_breakout"), 30)
-    if detail.get("breakout_flag"):
-        age = detail.get("breakout_age")
-        if age == 0:
-            signal_texte.append(("✓", "Die Aktie hat heute einen wichtigen Widerstand mit "
-                                        "hohem Handelsvolumen durchbrochen."))
-        else:
-            signal_texte.append(("✓", f"Die Aktie hat vor {age} Handelstagen einen wichtigen "
-                                        f"Widerstand mit hohem Handelsvolumen durchbrochen."))
-    elif breakout_symbol == "~":
-        signal_texte.append(("~", "Es gibt erste Anzeichen für einen möglichen Ausbruch, "
-                                    "aber noch keine vollständige Bestätigung."))
-    else:
-        signal_texte.append(("✗", "Aktuell liegt kein Ausbruch über einen Widerstand vor."))
-
-    regime = detail.get("regime")
-    if regime == "positiv":
-        signal_texte.append(("✓", "Der Gesamtmarkt befindet sich im Aufwärtstrend — "
-                                    "ein günstiges Umfeld für Käufe."))
-    elif regime == "neutral":
-        signal_texte.append(("~", "Der Gesamtmarkt ist in einer neutralen Phase."))
-    else:
-        signal_texte.append(("✗", "Der Gesamtmarkt befindet sich im Abwärtstrend — "
-                                    "ein ungünstiges Umfeld für Käufe."))
-
-    crv = detail.get("crv")
-    risk_symbol = signal_status_symbol(detail.get("score_risk"), 15)
-    if crv is None:
-        signal_texte.append(("~", "Die Aktie steht auf oder nahe einem Hochpunkt — "
-                                    "ein klares Kursziel lässt sich aktuell nicht "
-                                    "bestimmen."))
-    elif risk_symbol == "✓":
-        signal_texte.append(("✓", f"Das Verhältnis zwischen möglichem Gewinn und "
-                                    f"möglichem Verlust ist attraktiv (CRV ≈ {crv:.1f})."))
-    elif risk_symbol == "~":
-        signal_texte.append(("~", f"Das Verhältnis zwischen möglichem Gewinn und "
-                                    f"möglichem Verlust ist in Ordnung (CRV ≈ {crv:.1f})."))
-    else:
-        signal_texte.append(("✗", f"Das Verhältnis zwischen möglichem Gewinn und "
-                                    f"möglichem Verlust ist ungünstig (CRV ≈ {crv:.1f})."))
-
-    symbol_color = {"✓": COLOR_GREEN, "~": COLOR_YELLOW, "✗": COLOR_RED}
-
-    for symbol, text in signal_texte:
-        c = symbol_color.get(symbol, COLOR_GRAY)
-        st.markdown(
-            f'<div style="margin-bottom:0.3rem;">'
-            f'<span style="color:{c};font-weight:bold;">{symbol}</span> {text}'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-    # Sperrregel-Hinweis
-    if regime in ("neutral", "negativ") and score_total <= 69:
-        st.caption(
-            "ℹ️ Hinweis: Da das Marktumfeld nicht durchgehend positiv ist, ist "
-            "die Bewertung dieser Aktie automatisch auf höchstens "
-            "„Beobachten“ begrenzt — unabhängig davon, wie gut die "
-            "einzelnen Signale der Aktie selbst sind."
-        )
-
-    st.divider()
-
-    # Stop-Loss, Kursziel, CRV
-    st.markdown("**Kennzahlen für diesen Trade**")
-
-    col1, col2, col3 = st.columns(3)
+    
+    # 2. KERNKENNZAHLEN (4 Spalten)
+    col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
-        st.metric("Stop-Loss", f"{detail['stop_loss']:.2f} €" if detail.get("stop_loss") else "—")
+        price = detail.get("price_close")
+        st.metric("Aktueller Kurs", f"{price:.2f} €" if price else "—")
+    
     with col2:
-        kursziel = detail.get("kursziel")
-        st.metric("Kursziel", f"{kursziel:.2f} €" if kursziel is not None else "Nicht bestimmbar")
+        stop_buy = detail.get("stop_buy")
+        st.metric("Stop-Buy", f"{stop_buy:.2f} €" if stop_buy else "—")
+    
     with col3:
-        crv_val = detail.get("crv")
-        st.metric("Chance/Risiko", f"{crv_val:.1f}" if crv_val is not None else "—")
-
-    if detail.get("crv") is None:
-        st.caption(
-            "Kein Kursziel bestimmbar — die Aktie befindet sich auf oder "
-            "nahe ihrem höchsten Stand der letzten 60 Handelstage."
-        )
-
+        stop_loss = detail.get("stop_loss")
+        st.metric("Stop-Loss", f"{stop_loss:.2f} €" if stop_loss else "—")
+    
+    with col4:
+        # Risiko in Prozent berechnen
+        if price and stop_loss:
+            risk_pct = abs((price - stop_loss) / price * 100)
+            st.metric("Risiko", f"{risk_pct:.1f}%")
+        else:
+            st.metric("Risiko", "—")
+    
+    # 3. KURSZIELE & CRV (3 Spalten)
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        kursziel = detail.get("kursziel")
+        if kursziel:
+            st.metric("Kursziel 1", f"{kursziel:.2f} €")
+        else:
+            st.info("📍 **Kursziel 1:** Die Aktie handelt nahe dem 60-Tage-Hoch. Klassisches Widerstandsziel nicht ableitbar. Einstieg nur über Stop-Buy sinnvoll.")
+    
+    with col2:
+        st.metric("Kursziel 2", "—")  # Placeholder für zukünftige Erweiterung
+    
+    with col3:
+        crv = detail.get("crv")
+        if crv:
+            crv_color = "green" if crv > 1.5 else "orange" if crv > 1 else "red"
+            st.markdown(
+                f'<div style="text-align:center;padding:0.5rem;background-color:{crv_color};opacity:0.2;border-radius:8px;">'
+                f'<strong>Chance/Risiko</strong><br/><span style="font-size:1.5rem;font-weight:bold;">{crv:.2f}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("📊 **CRV:** Nicht bestimmbar — die Aktie befindet sich auf oder nahe ihrem höchsten Stand der letzten 60 Handelstage. Einstieg ist spekulativ.")
+    
+    # 4. METADATEN (2 Spalten)
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        age = detail.get("breakout_age")
+        if age is not None:
+            st.metric("Signalalter", f"{age} Tage")
+        else:
+            st.metric("Signalalter", "—")
+    
+    with col2:
+        # Setup-Typ bestimmen
+        breakout_flag = detail.get("breakout_flag")
+        setup_type = "Breakout" if breakout_flag else "Beobachtung"
+        st.metric("Setup-Typ", setup_type)
+    
     st.divider()
-
-    # -------------------------------------------------------------------
-    # Ebene 2 — Technische Details (aufklappbar)
-    # -------------------------------------------------------------------
+    
+    # ========================================================================
+    # EBENE 1b — SCORE-AUFSCHLÜSSELUNG (Direkt sichtbar)
+    # ========================================================================
+    
+    st.subheader("📊 Score-Aufschlüsselung")
+    
+    # SMA200
+    sma200_score = detail.get("score_sma200", 0)
+    sma200 = detail.get("sma200")
+    st.markdown(f"**SMA200:** {sma200_score} / 15 Punkte")
+    if sma200:
+        st.caption(f"Wert: {sma200:.2f} €")
+    if sma200_score == 15:
+        st.success("✓ Aktie liegt deutlich über dem 200er-Durchschnitt")
+    elif sma200_score > 0:
+        st.info("~ Aktie liegt über dem 200er-Durchschnitt")
+    else:
+        st.error("✗ Aktie liegt unter dem 200er-Durchschnitt")
+    
+    st.divider()
+    
+    # Relative Stärke
+    rs_score = detail.get("score_rs", 0)
+    rs_value = detail.get("rs_score")
+    st.markdown(f"**Relative Stärke:** {rs_score} / 25 Punkte")
+    if rs_value:
+        st.caption(f"RS-Score: {rs_value:+.2f}%")
+    if rs_score >= 20:
+        st.success("✓ Aktie deutlich stärker als der Markt")
+    elif rs_score > 0:
+        st.info("~ Aktie stärker als der Markt")
+    else:
+        st.error("✗ Aktie schwächer als der Markt")
+    
+    st.divider()
+    
+    # Breakout
+    breakout_score = detail.get("score_breakout", 0)
+    breakout_flag = detail.get("breakout_flag")
+    breakout_age = detail.get("breakout_age")
+    st.markdown(f"**Breakout:** {breakout_score} / 30 Punkte")
+    
+    if breakout_flag:
+        if breakout_age == 0:
+            st.success(f"✓ Widerstandsdurchbruch HEUTE mit hohem Volumen!")
+        else:
+            st.success(f"✓ Widerstandsdurchbruch vor {breakout_age} Handelstagen")
+    elif breakout_score > 0:
+        st.info("~ Erste Anzeichen für möglichen Ausbruch")
+    else:
+        st.error("✗ Kein aktiver Breakout")
+    
+    st.divider()
+    
+    # Marktregime
+    regime = detail.get("regime")
+    regime_score = detail.get("score_regime", 0)
+    st.markdown(f"**Marktregime:** {regime_score} / 15 Punkte")
+    
+    if regime == "positiv":
+        st.success("✓ Markt im Aufwärtstrend — günstiges Umfeld")
+    elif regime == "neutral":
+        st.info("~ Markt neutral — keine starke Unterstützung")
+    else:
+        st.error("✗ Markt im Abwärtstrend — ungünstiges Umfeld")
+    
+    st.divider()
+    
+    # Risiko / CRV
+    risk_score = detail.get("score_risk", 0)
+    atr14 = detail.get("atr14")
+    atr_ratio = detail.get("atr_ratio")
+    st.markdown(f"**Risiko / CRV:** {risk_score} / 15 Punkte")
+    
+    if atr14:
+        st.caption(f"ATR (14 Tage): {atr14:.2f} € | ATR-Ratio: {atr_ratio:.2f}%")
+    
+    if crv and crv > 1.5:
+        st.success("✓ Hervorragendes Chance/Risiko-Verhältnis")
+    elif crv and crv > 1:
+        st.success("✓ Gutes Chance/Risiko-Verhältnis")
+    elif crv:
+        st.warning("⚠ Schwaches Chance/Risiko-Verhältnis")
+    else:
+        st.info("~ CRV nicht bestimmbar — Aktie zu nah am Hochpunkt")
+    
+    st.divider()
+    
+    # ========================================================================
+    # EBENE 2 — TECHNISCHE DETAILS (aufklappbar)
+    # ========================================================================
+    
     with st.expander("📋 Technische Details"):
-        st.markdown(f"**SMA200**")
-        sma200 = detail.get("sma200")
-        st.write(f"Score: {detail['score_sma200']} / 15 Punkte")
-        if sma200 is not None:
-            st.write(f"SMA200-Wert: {sma200:.2f}")
-
-        st.markdown(f"**Relative Stärke**")
-        st.write(f"Score: {detail['score_rs']} / 25 Punkte")
-        rs_score = detail.get("rs_score")
-        if rs_score is not None:
-            st.write(f"RS-Score: {rs_score:+.2f}%")
-
-        st.markdown(f"**Breakout**")
-        st.write(f"Score: {detail['score_breakout']} / 30 Punkte")
-        st.write(f"Breakout heute oder kürzlich: "
-                 f"{'Ja' if detail.get('breakout_flag') else 'Nein'}")
-        if detail.get("breakout_age") is not None:
-            st.write(f"Alter des Breakouts: {detail['breakout_age']} Handelstage")
-
-        st.markdown(f"**Marktregime**")
-        st.write(f"Score: {detail['score_regime']} / 15 Punkte")
-        st.write(f"Status: {regime_label(detail.get('regime'))}")
-
-        st.markdown(f"**Risiko / CRV**")
-        st.write(f"Score: {detail['score_risk']} / 15 Punkte")
-        if detail.get("atr14") is not None:
-            st.write(f"ATR (14 Tage): {detail['atr14']:.2f}")
-        if detail.get("atr_ratio") is not None:
-            st.write(f"ATR in % des Kurses: {detail['atr_ratio']:.2f}%")
-
-        st.divider()
-        st.write(f"**Signalversion:** {detail.get('signal_version', '—')}")
-        st.write(f"**Datum:** {detail.get('date', '—')}")
-        st.write(f"**Datenquelle:** {detail.get('data_source', '—')}")
-        st.write(f"**SMA50:** {detail['sma50']:.2f}" if detail.get("sma50") else "")
-
-    # -------------------------------------------------------------------
-    # Ebene 3 — Chart-Endkontrolle (aufklappbar)
-    # -------------------------------------------------------------------
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write(f"**Datum:** {detail.get('date', '—')}")
+            st.write(f"**SMA50:** {detail.get('sma50', '—')}")
+            st.write(f"**Breakout-Alter:** {breakout_age if breakout_age else '—'} Tage")
+        
+        with col2:
+            st.write(f"**Signal-Version:** {detail.get('signal_version', '—')}")
+            st.write(f"**Datenquelle:** {detail.get('data_source', '—')}")
+            st.write(f"**ATR-Ratio:** {atr_ratio:.2f}%" if atr_ratio else "")
+    
+    # ========================================================================
+    # EBENE 3 — CHART-ENDKONTROLLE (aufklappbar)
+    # ========================================================================
+    
     with st.expander("✅ Chart-Endkontrolle"):
         st.markdown(
             "Bevor du eine Kaufentscheidung triffst, schau dir den aktuellen "
-            "Chart dieser Aktie an (z.B. bei TradingView oder finanzen.net) "
-            "und beantworte die folgenden Fragen ehrlich für dich selbst."
+            "Chart dieser Aktie an und beantworte die Fragen ehrlich."
         )
-        st.caption(
-            "Die Antworten werden nicht ausgewertet oder gespeichert — sie "
-            "dienen nur deiner eigenen Einschätzung."
-        )
-
+        
         for i, item in enumerate(CHART_CHECKLIST, start=1):
             st.markdown(f"**{i}. {item['frage']}**")
-            st.caption(item["erklaerung"])
-            st.radio(
-                label="Antwort",
-                options=["—", "Ja", "Nein"],
-                key=f"checklist_{ticker}_{i}",
-                horizontal=True,
-                label_visibility="collapsed",
-            )
-            if i < len(CHART_CHECKLIST):
-                st.markdown("")
 
-        st.info(
-            "Diese Checkliste ersetzt keine eigene Entscheidung. Die "
-            "endgültige Kauf- oder Verkaufsentscheidung triffst du selbst."
-        )
-
-    # -------------------------------------------------------------------
-    # Ebene 4 — KI-Zusammenfassung (aufklappbar)
-    # -------------------------------------------------------------------
-    with st.expander("🤖 KI-Zusammenfassung"):
-        st.caption(
-            "Die KI erklärt die oben berechneten Werte in einfacher Sprache. "
-            "Sie erfindet keine Kurse, schätzt keine Daten und gibt keine "
-            "Kaufempfehlung."
-        )
-
-        summary_key = f"ai_summary_{ticker}"
-
-        if st.button("Zusammenfassung erstellen", key=f"ai_btn_{ticker}"):
-            with st.spinner("KI-Zusammenfassung wird erstellt …"):
-                result = generate_summary(detail)
-            st.session_state[summary_key] = result
-
-        cached = st.session_state.get(summary_key)
-        if cached is not None:
-            if cached["success"]:
-                st.write(cached["text"])
-            else:
-                st.error(cached["error"])
-
-
-# =============================================================================
-# Hauptprogramm
-# =============================================================================
-
-if st.session_state.page == "detail" and st.session_state.selected_ticker:
-    render_detailseite()
-else:
-    render_startseite()
-
-if __name__ == "__main__":
-    init_swing_trading_schema()
-
-
-# =============================================================================
-# HILFSFUNKTION: Scores laden
-# =============================================================================
 
 def get_latest_scores():
     """Lädt die letzten Scores aus der Datenbank."""
