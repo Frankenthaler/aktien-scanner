@@ -666,3 +666,13 @@ def render_detailseite():
         st.markdown("Bevor du kaufst, überprüfe diese Punkte im Chart:")
         for i, item in enumerate(CHART_CHECKLIST, start=1):
             st.markdown(f"**{i}. {item['frage']}**")
+
+
+# =============================================================================
+# HAUPTNAVIGATION
+# =============================================================================
+
+if st.session_state.page == "start":
+    render_startseite()
+elif st.session_state.page == "detail":
+    render_detailseite()
