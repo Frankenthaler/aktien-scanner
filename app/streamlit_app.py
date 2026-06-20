@@ -490,10 +490,6 @@ def render_startseite():
 # Seite 2 — Detailseite
 # =============================================================================
 
-# ============================================================================
-# NEUE DETAILANSICHT - Swing-Trade-orientiert
-# ============================================================================
-
 def render_detailseite():
     """Neue Detailansicht mit Swing-Trade-Fokus"""
     ticker = st.session_state.selected_ticker
@@ -523,14 +519,17 @@ def render_detailseite():
 
     score_total = int(detail["score_total"])
     rating = detail["rating"]
+    breakout_age = detail.get("breakout_age")
+    crv = detail.get("crv")
+    atr_ratio = detail.get("atr_ratio")
     
     # ========================================================================
-    # EBENE 1 — SWING-TRADE HEADER (Oben prominent)
+    # EBENE 1 — SWING-TRADE HEADER
     # ========================================================================
     
     st.title(f"{name} ({ticker})")
     
-    # 1. HANDLUNGSSIGNAL
+    # Handlungssignal
     color = RATING_COLORS.get(rating, COLOR_GRAY)
     signal_emoji = {"Starkes Kaufsignal": "🟢", "Interessant": "🟢", "Beobachten": "🟡", "Kein Kauf": "🔴"}
     emoji = signal_emoji.get(rating, "⚪")
@@ -543,158 +542,105 @@ def render_detailseite():
         unsafe_allow_html=True,
     )
     
-    # 2. KERNKENNZAHLEN (4 Spalten)
+    # Kernkennzahlen
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         price = detail.get("price_close")
         st.metric("Aktueller Kurs", f"{price:.2f} €" if price else "—")
-    
     with col2:
         stop_buy = detail.get("stop_buy")
         st.metric("Stop-Buy", f"{stop_buy:.2f} €" if stop_buy else "—")
-    
     with col3:
         stop_loss = detail.get("stop_loss")
         st.metric("Stop-Loss", f"{stop_loss:.2f} €" if stop_loss else "—")
-    
     with col4:
-        # Risiko in Prozent berechnen
         if price and stop_loss:
             risk_pct = abs((price - stop_loss) / price * 100)
             st.metric("Risiko", f"{risk_pct:.1f}%")
         else:
             st.metric("Risiko", "—")
     
-    # 3. KURSZIELE & CRV (3 Spalten)
+    # Kursziele & CRV
     col1, col2, col3 = st.columns(3)
-    
     with col1:
         kursziel = detail.get("kursziel")
         if kursziel:
             st.metric("Kursziel 1", f"{kursziel:.2f} €")
         else:
-            st.info("📍 **Kursziel 1:** Die Aktie handelt nahe dem 60-Tage-Hoch. Klassisches Widerstandsziel nicht ableitbar. Einstieg nur über Stop-Buy sinnvoll.")
-    
+            st.info("📍 Kursziel: Aktie zu nah am Hochpunkt. Einstieg nur über Stop-Buy.")
     with col2:
-        st.metric("Kursziel 2", "—")  # Placeholder für zukünftige Erweiterung
-    
+        st.metric("Kursziel 2", "—")
     with col3:
-        crv = detail.get("crv")
         if crv:
-            crv_color = "green" if crv > 1.5 else "orange" if crv > 1 else "red"
-            st.markdown(
-                f'<div style="text-align:center;padding:0.5rem;background-color:{crv_color};opacity:0.2;border-radius:8px;">'
-                f'<strong>Chance/Risiko</strong><br/><span style="font-size:1.5rem;font-weight:bold;">{crv:.2f}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
+            st.metric("Chance/Risiko", f"{crv:.2f}")
         else:
-            st.info("📊 **CRV:** Nicht bestimmbar — die Aktie befindet sich auf oder nahe ihrem höchsten Stand der letzten 60 Handelstage. Einstieg ist spekulativ.")
+            st.info("📊 CRV: Nicht bestimmbar.")
     
-    # 4. METADATEN (2 Spalten)
+    # Metadaten
     col1, col2 = st.columns(2)
-    
     with col1:
-        age = detail.get("breakout_age")
-        if age is not None:
-            st.metric("Signalalter", f"{age} Tage")
-        else:
-            st.metric("Signalalter", "—")
-    
+        st.metric("Signalalter", f"{breakout_age} Tage" if breakout_age else "—")
     with col2:
-        # Setup-Typ bestimmen
-        breakout_flag = detail.get("breakout_flag")
-        setup_type = "Breakout" if breakout_flag else "Beobachtung"
+        setup_type = "Breakout" if detail.get("breakout_flag") else "Beobachtung"
         st.metric("Setup-Typ", setup_type)
     
     st.divider()
     
-    # ========================================================================
-    # EBENE 1b — SCORE-AUFSCHLÜSSELUNG (Direkt sichtbar)
-    # ========================================================================
-    
+    # Score-Aufschlüsselung
     st.subheader("📊 Score-Aufschlüsselung")
     
-    # SMA200
     sma200_score = detail.get("score_sma200", 0)
-    sma200 = detail.get("sma200")
     st.markdown(f"**SMA200:** {sma200_score} / 15 Punkte")
-    if sma200:
-        st.caption(f"Wert: {sma200:.2f} €")
     if sma200_score == 15:
-        st.success("✓ Aktie liegt deutlich über dem 200er-Durchschnitt")
+        st.success("✓ Deutlich über 200er-Durchschnitt")
     elif sma200_score > 0:
-        st.info("~ Aktie liegt über dem 200er-Durchschnitt")
+        st.info("~ Über 200er-Durchschnitt")
     else:
-        st.error("✗ Aktie liegt unter dem 200er-Durchschnitt")
-    
+        st.error("✗ Unter 200er-Durchschnitt")
     st.divider()
     
-    # Relative Stärke
     rs_score = detail.get("score_rs", 0)
-    rs_value = detail.get("rs_score")
     st.markdown(f"**Relative Stärke:** {rs_score} / 25 Punkte")
-    if rs_value:
-        st.caption(f"RS-Score: {rs_value:+.2f}%")
     if rs_score >= 20:
-        st.success("✓ Aktie deutlich stärker als der Markt")
+        st.success("✓ Deutlich stärker als Markt")
     elif rs_score > 0:
-        st.info("~ Aktie stärker als der Markt")
+        st.info("~ Stärker als Markt")
     else:
-        st.error("✗ Aktie schwächer als der Markt")
-    
+        st.error("✗ Schwächer als Markt")
     st.divider()
     
-    # Breakout
     breakout_score = detail.get("score_breakout", 0)
-    breakout_flag = detail.get("breakout_flag")
-    breakout_age = detail.get("breakout_age")
     st.markdown(f"**Breakout:** {breakout_score} / 30 Punkte")
-    
-    if breakout_flag:
-        if breakout_age == 0:
-            st.success(f"✓ Widerstandsdurchbruch HEUTE mit hohem Volumen!")
-        else:
-            st.success(f"✓ Widerstandsdurchbruch vor {breakout_age} Handelstagen")
+    if detail.get("breakout_flag"):
+        st.success(f"✓ Widerstand durchbrochen vor {breakout_age if breakout_age else 0} Tagen")
     elif breakout_score > 0:
-        st.info("~ Erste Anzeichen für möglichen Ausbruch")
+        st.info("~ Erste Ausbruchsanzeichen")
     else:
-        st.error("✗ Kein aktiver Breakout")
-    
+        st.error("✗ Kein Breakout")
     st.divider()
     
-    # Marktregime
     regime = detail.get("regime")
     regime_score = detail.get("score_regime", 0)
     st.markdown(f"**Marktregime:** {regime_score} / 15 Punkte")
-    
     if regime == "positiv":
-        st.success("✓ Markt im Aufwärtstrend — günstiges Umfeld")
+        st.success("✓ Markt im Aufwärtstrend")
     elif regime == "neutral":
-        st.info("~ Markt neutral — keine starke Unterstützung")
+        st.info("~ Markt neutral")
     else:
-        st.error("✗ Markt im Abwärtstrend — ungünstiges Umfeld")
-    
+        st.error("✗ Markt im Abwärtstrend")
     st.divider()
     
-    # Risiko / CRV
     risk_score = detail.get("score_risk", 0)
-    atr14 = detail.get("atr14")
-    atr_ratio = detail.get("atr_ratio")
     st.markdown(f"**Risiko / CRV:** {risk_score} / 15 Punkte")
-    
-    if atr14:
-        st.caption(f"ATR (14 Tage): {atr14:.2f} € | ATR-Ratio: {atr_ratio:.2f}%")
-    
     if crv and crv > 1.5:
-        st.success("✓ Hervorragendes Chance/Risiko-Verhältnis")
+        st.success("✓ Hervorragendes CRV")
     elif crv and crv > 1:
-        st.success("✓ Gutes Chance/Risiko-Verhältnis")
+        st.success("✓ Gutes CRV")
     elif crv:
-        st.warning("⚠ Schwaches Chance/Risiko-Verhältnis")
+        st.warning("⚠ Schwaches CRV")
     else:
-        st.info("~ CRV nicht bestimmbar — Aktie zu nah am Hochpunkt")
+        st.info("~ CRV nicht bestimmbar")
     
     st.divider()
     
@@ -704,53 +650,19 @@ def render_detailseite():
     
     with st.expander("📋 Technische Details"):
         col1, col2 = st.columns(2)
-        
         with col1:
             st.write(f"**Datum:** {detail.get('date', '—')}")
             st.write(f"**SMA50:** {detail.get('sma50', '—')}")
-            st.write(f"**Breakout-Alter:** {breakout_age if breakout_age else '—'} Tage")
-        
         with col2:
             st.write(f"**Signal-Version:** {detail.get('signal_version', '—')}")
-            st.write(f"**Datenquelle:** {detail.get('data_source', '—')}")
-            st.write(f"**ATR-Ratio:** {atr_ratio:.2f}%" if atr_ratio else "")
+            if atr_ratio:
+                st.write(f"**ATR-Ratio:** {atr_ratio:.2f}%")
     
     # ========================================================================
     # EBENE 3 — CHART-ENDKONTROLLE (aufklappbar)
     # ========================================================================
     
     with st.expander("✅ Chart-Endkontrolle"):
-        st.markdown(
-            "Bevor du eine Kaufentscheidung triffst, schau dir den aktuellen "
-            "Chart dieser Aktie an und beantworte die Fragen ehrlich."
-        )
-        
+        st.markdown("Bevor du kaufst, überprüfe diese Punkte im Chart:")
         for i, item in enumerate(CHART_CHECKLIST, start=1):
             st.markdown(f"**{i}. {item['frage']}**")
-
-
-def get_latest_scores():
-    """Lädt die letzten Scores aus der Datenbank."""
-    try:
-        conn = init_db()
-        scores_df = pd.read_sql_query(
-            "SELECT ticker, score_total, rating, sma200, rs_score, breakout_flag, breakout_age, regime, atr14, crv, kursziel FROM scores ORDER BY score_total DESC",
-            conn
-        )
-        conn.close()
-        
-        if scores_df.empty:
-            return pd.DataFrame()
-        
-        try:
-            conn = init_db()
-            names_df = pd.read_sql_query("SELECT ticker, name FROM stocks", conn)
-            conn.close()
-            scores_df = scores_df.merge(names_df, on="ticker", how="left")
-        except:
-            pass
-        
-        return scores_df
-    except Exception as e:
-        logger.error(f"Fehler: {e}")
-        return pd.DataFrame()
