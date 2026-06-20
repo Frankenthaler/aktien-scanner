@@ -248,14 +248,14 @@ def render_startseite():
     # -------------------------------------------------------------------
     # Marktstatus
     # -------------------------------------------------------------------
-    st.subheader("Marktatus")
+    st.subheader("Marktstatus")
 
     scores_df = get_latest_scores()
 
     if scores_df.empty:
         st.info(
             "Noch keine Daten vorhanden. Bitte zuerst auf "
-            "**„Daten aktualisieren"** tippen, um die erste Analyse zu starten."
+            "**"Daten aktualisieren“** tippen, um die erste Analyse zu starten."
         )
         col_dax, col_sp500 = None, None
         regime_dax, regime_sp500 = "keine_daten", "keine_daten"
@@ -296,7 +296,7 @@ def render_startseite():
         st.warning(
             "⚠️ Der Markt befindet sich in einem ungünstigen Umfeld. "
             "Kaufsignale werden automatisch vorsichtiger bewertet "
-            "(maximale Bewertung: „Beobachten")."
+            "(maximale Bewertung: "Beobachten“)."
         )
     elif regime_dax == "neutral" or regime_sp500 == "neutral":
         st.info(
@@ -317,7 +317,7 @@ def render_startseite():
     # -------------------------------------------------------------------
     if st.button("🔄 Daten aktualisieren", use_container_width=True, type="primary"):
         with st.spinner(
-            "Daten werden aktualisiert … Das kann je nach Anzahl der Aktien "
+            "Daten werden aktualisiert ... Das kann je nach Anzahl der Aktien "
             "einige Minuten dauern."
         ):
             try:
@@ -452,7 +452,7 @@ def render_startseite():
         cols = st.columns([3, 2, 2, 1])
 
         name = row.get("name") or row["ticker"]
-        display_name = name if len(str(name)) <= 18 else str(name)[:16] + "…"
+        display_name = name if len(str(name)) <= 18 else str(name)[:16] + "..."
 
         with cols[0]:
             if st.button(
@@ -555,8 +555,11 @@ def render_detailseite():
         stop_loss = detail.get("stop_loss")
         st.metric("Stop-Loss", f"{stop_loss:.2f} €" if stop_loss else "—")
     with col4:
-        risk_pct = detail.get("risk_pct")
-        st.metric("Risiko", f"{risk_pct:.1f}%" if risk_pct else "—")
+        if price and stop_loss:
+            risk_pct = abs((price - stop_loss) / price * 100)
+            st.metric("Risiko", f"{risk_pct:.1f}%")
+        else:
+            st.metric("Risiko", "—")
     
     # Kursziele & CRV
     col1, col2, col3 = st.columns(3)
