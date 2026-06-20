@@ -32,7 +32,11 @@ from scheduler import run_full_update
 from scoring.ai_summary import generate_summary
 from config import RATING_THRESHOLDS
 
-from trading.recommendation_tracker import init_swing_trading_schema, save_swing_trade_recommendation
+from trading.recommendation_tracker import (
+    init_swing_trading_schema,
+    save_swing_trade_recommendation,
+)
+
 
 # =============================================================================
 # Konfiguration / Konstanten
