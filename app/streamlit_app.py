@@ -32,10 +32,7 @@ from scheduler import run_full_update
 from scoring.ai_summary import generate_summary
 from config import RATING_THRESHOLDS
 
-from trading.recommendation_tracker import (
-    init_swing_trading_schema,
-    save_swing_trade_recommendation,
-)
+from trading.recommendation_tracker import init_swing_trading_schema, save_swing_trade_recommendation
 
 # =============================================================================
 # Konfiguration / Konstanten
@@ -208,54 +205,6 @@ st.markdown("""
     /* Tabellen nie breiter als der Bildschirm */
     [data-testid="stDataFrame"], [data-testid="stTable"] {
         width: 100% !important;
-
-
-# =============================================================================
-# HILFSFUNKTION: Scores laden
-# =============================================================================
-
-def get_latest_scores():
-    """Lädt die letzten Scores aus der Datenbank und gibt einen DataFrame zurück."""
-    try:
-        conn = init_db()
-        query = """
-            SELECT 
-                ticker,
-                score_total,
-                rating,
-                sma200,
-                rs_score,
-                breakout_flag,
-                breakout_age,
-                regime,
-                atr14,
-                crv,
-                kursziel
-            FROM scores
-            ORDER BY score_total DESC
-        """
-        scores_df = pd.read_sql_query(query, conn)
-        conn.close()
-        
-        if scores_df.empty:
-            return pd.DataFrame()
-        
-        # Füge "name" Feld hinzu (falls vorhanden)
-        try:
-            conn = init_db()
-            names_query = "SELECT ticker, name FROM stocks"
-            names_df = pd.read_sql_query(names_query, conn)
-            conn.close()
-            scores_df = scores_df.merge(names_df, on="ticker", how="left")
-        except:
-            pass
-        
-        return scores_df
-        
-    except Exception as e:
-        logger.error(f"Fehler beim Laden der Scores: {e}")
-        return pd.DataFrame()
-
         overflow-x: auto;
     }
     /* Lange Ticker/Namen umbrechen statt abschneiden+scrollen */
@@ -801,3 +750,34 @@ else:
 
 if __name__ == "__main__":
     init_swing_trading_schema()
+
+
+# =============================================================================
+# HILFSFUNKTION: Scores laden
+# =============================================================================
+
+def get_latest_scores():
+    """Lädt die letzten Scores aus der Datenbank."""
+    try:
+        conn = init_db()
+        scores_df = pd.read_sql_query(
+            "SELECT ticker, score_total, rating, sma200, rs_score, breakout_flag, breakout_age, regime, atr14, crv, kursziel FROM scores ORDER BY score_total DESC",
+            conn
+        )
+        conn.close()
+        
+        if scores_df.empty:
+            return pd.DataFrame()
+        
+        try:
+            conn = init_db()
+            names_df = pd.read_sql_query("SELECT ticker, name FROM stocks", conn)
+            conn.close()
+            scores_df = scores_df.merge(names_df, on="ticker", how="left")
+        except:
+            pass
+        
+        return scores_df
+    except Exception as e:
+        logger.error(f"Fehler: {e}")
+        return pd.DataFrame()
