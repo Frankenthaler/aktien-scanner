@@ -320,7 +320,7 @@ def get_latest_scores(target_date: str = None, min_score: int = 0) -> pd.DataFra
 
 
 def get_score_detail(ticker: str, target_date: str = None) -> dict | None:
-    """Liest vollständigen Score-Eintrag für eine Aktie."""
+    """Liest vollständigen Score-Eintrag für eine Aktie + Kursdaten."""
     with get_connection() as conn:
         if target_date is None:
             row = conn.execute(
@@ -332,13 +332,36 @@ def get_score_detail(ticker: str, target_date: str = None) -> dict | None:
             target_date = row["d"]
 
         row = conn.execute("""
-            SELECT s.*, st.name
+            SELECT s.*, st.name, p.close as price_close
             FROM scores s
             LEFT JOIN stocks st ON s.ticker = st.ticker
+            LEFT JOIN prices p ON s.ticker = p.ticker AND s.date = p.date
             WHERE s.ticker = ? AND s.date = ?
         """, (ticker, target_date)).fetchone()
 
-    return dict(row) if row else None
+        if not row:
+            return None
+        
+        detail = dict(row)
+        
+        # Berechne stop_buy und risiko
+        stop_loss = detail.get("stop_loss")
+        atr14 = detail.get("atr14")
+        price_close = detail.get("price_close")
+        
+        if stop_loss and atr14:
+            # stop_buy = stop_loss + (2 * ATR)
+            detail["stop_buy"] = stop_loss + (2 * atr14)
+        else:
+            detail["stop_buy"] = None
+        
+        # Risiko in Prozent
+        if price_close and stop_loss:
+            detail["risk_pct"] = abs((price_close - stop_loss) / price_close * 100)
+        else:
+            detail["risk_pct"] = None
+
+    return detail
 
 
 def get_db_stats() -> dict:
