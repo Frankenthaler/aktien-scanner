@@ -1,13 +1,13 @@
 """
-app/streamlit_app.py — Benutzeroberfläche
-Aktien-Scanner V1 — Phase 4 (Frontend)
+app/streamlit_app.py - Benutzeroberfläche
+Aktien-Scanner V1 - Phase 4 (Frontend)
 
-Seite 1 — Startseite:
+Seite 1 - Startseite:
   Marktstatus, Datenstand, Schaltfläche "Daten aktualisieren",
   Anzahl analysierter Aktien, Anzahl je Bewertungsstufe,
   Filter (Index, Bewertung), Top-20-Rangliste
 
-Seite 2 — Detailseite:
+Seite 2 - Detailseite:
   Ebene 1 (einfache Ansicht), Ebene 2 (technische Details, aufklappbar),
   Ebene 3 (Chart-Endkontrolle, aufklappbar)
 
@@ -90,7 +90,7 @@ CHART_CHECKLIST = [
     {
         "frage": "Ist der vorgeschlagene Stop-Loss im Chart logisch platziert?",
         "erklaerung": "Der Stop-Loss sollte unterhalb einer Unterstützung oder "
-                       "eines vorherigen Tiefpunkts liegen — nicht mitten in "
+                       "eines vorherigen Tiefpunkts liegen - nicht mitten in "
                        "einem Bereich, in dem der Kurs häufig hin und her "
                        "pendelt."
     },
@@ -104,7 +104,7 @@ CHART_CHECKLIST = [
 def format_datetime(value) -> str:
     """Formatiert einen Zeitstempel für die Anzeige."""
     if value is None:
-        return "—"
+        return "-"
     if isinstance(value, str):
         try:
             value = datetime.fromisoformat(value.replace("Z", ""))
@@ -238,7 +238,7 @@ def go_to_start():
 
 
 # =============================================================================
-# Seite 1 — Startseite
+# Seite 1 - Startseite
 # =============================================================================
 
 def render_startseite():
@@ -401,7 +401,7 @@ def render_startseite():
     # -------------------------------------------------------------------
     # Filter
     # -------------------------------------------------------------------
-    st.subheader("Rangliste — Top 20")
+    st.subheader("Rangliste - Top 20")
 
     col_f1, col_f2 = st.columns(2)
 
@@ -487,7 +487,7 @@ def render_startseite():
 
 
 # =============================================================================
-# Seite 2 — Detailseite
+# Seite 2 - Detailseite
 # =============================================================================
 
 def render_detailseite():
@@ -524,7 +524,7 @@ def render_detailseite():
     atr_ratio = detail.get("atr_ratio")
     
     # ========================================================================
-    # EBENE 1 — SWING-TRADE HEADER
+    # EBENE 1 - SWING-TRADE HEADER
     # ========================================================================
     
     st.title(f"{name} ({ticker})")
@@ -547,19 +547,19 @@ def render_detailseite():
     
     with col1:
         price = detail.get("price_close")
-        st.metric("Aktueller Kurs", f"{price:.2f} €" if price else "—")
+        st.metric("Aktueller Kurs", f"{price:.2f} €" if price else "-")
     with col2:
         stop_buy = detail.get("stop_buy")
-        st.metric("Stop-Buy", f"{stop_buy:.2f} €" if stop_buy else "—")
+        st.metric("Stop-Buy", f"{stop_buy:.2f} €" if stop_buy else "-")
     with col3:
         stop_loss = detail.get("stop_loss")
-        st.metric("Stop-Loss", f"{stop_loss:.2f} €" if stop_loss else "—")
+        st.metric("Stop-Loss", f"{stop_loss:.2f} €" if stop_loss else "-")
     with col4:
         if price and stop_loss:
             risk_pct = abs((price - stop_loss) / price * 100)
             st.metric("Risiko", f"{risk_pct:.1f}%")
         else:
-            st.metric("Risiko", "—")
+            st.metric("Risiko", "-")
     
     # Kursziele & CRV
     col1, col2, col3 = st.columns(3)
@@ -570,7 +570,7 @@ def render_detailseite():
         else:
             st.info("📍 Kursziel: Aktie zu nah am Hochpunkt. Einstieg nur über Stop-Buy.")
     with col2:
-        st.metric("Kursziel 2", "—")
+        st.metric("Kursziel 2", "-")
     with col3:
         if crv:
             st.metric("Chance/Risiko", f"{crv:.2f}")
@@ -580,7 +580,7 @@ def render_detailseite():
     # Metadaten
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("Signalalter", f"{breakout_age} Tage" if breakout_age else "—")
+        st.metric("Signalalter", f"{breakout_age} Tage" if breakout_age else "-")
     with col2:
         setup_type = "Breakout" if detail.get("breakout_flag") else "Beobachtung"
         st.metric("Setup-Typ", setup_type)
@@ -645,21 +645,21 @@ def render_detailseite():
     st.divider()
     
     # ========================================================================
-    # EBENE 2 — TECHNISCHE DETAILS (aufklappbar)
+    # EBENE 2 - TECHNISCHE DETAILS (aufklappbar)
     # ========================================================================
     
     with st.expander("📋 Technische Details"):
         col1, col2 = st.columns(2)
         with col1:
-            st.write(f"**Datum:** {detail.get('date', '—')}")
-            st.write(f"**SMA50:** {detail.get('sma50', '—')}")
+            st.write(f"**Datum:** {detail.get('date', '-')}")
+            st.write(f"**SMA50:** {detail.get('sma50', '-')}")
         with col2:
-            st.write(f"**Signal-Version:** {detail.get('signal_version', '—')}")
+            st.write(f"**Signal-Version:** {detail.get('signal_version', '-')}")
             if atr_ratio:
                 st.write(f"**ATR-Ratio:** {atr_ratio:.2f}%")
     
     # ========================================================================
-    # EBENE 3 — CHART-ENDKONTROLLE (aufklappbar)
+    # EBENE 3 - CHART-ENDKONTROLLE (aufklappbar)
     # ========================================================================
     
     with st.expander("✅ Chart-Endkontrolle"):
