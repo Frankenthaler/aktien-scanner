@@ -111,6 +111,11 @@ def init_db() -> None:
                 atr_ratio       REAL,
                 kursziel        REAL,
 
+                stop_buy            REAL,
+                trade_risk_pct      REAL,
+                trade_chance_pct    REAL,
+                trade_crv           REAL,
+
                 created_at      TEXT DEFAULT (datetime('now')),
                 UNIQUE(ticker, date, signal_version)
             );
@@ -122,7 +127,29 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_scores_ticker
                 ON scores(ticker);
         """)
+        _migrate_add_missing_columns(conn)
     logger.info("Datenbank initialisiert.")
+
+
+def _migrate_add_missing_columns(conn: sqlite3.Connection) -> None:
+    """
+    Rüstet Spalten nach, die nach dem ersten Deployment zur scores-Tabelle
+    hinzugekommen sind. CREATE TABLE IF NOT EXISTS legt sie bei einer
+    bereits bestehenden DB-Datei NICHT nachträglich an — ohne diese
+    Migration würden stop_buy/trade_risk_pct/trade_chance_pct/trade_crv
+    auf einer schon laufenden Installation (Streamlit Cloud) fehlen.
+    """
+    required_columns = {
+        "stop_buy": "REAL",
+        "trade_risk_pct": "REAL",
+        "trade_chance_pct": "REAL",
+        "trade_crv": "REAL",
+    }
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(scores)").fetchall()}
+    for col, col_type in required_columns.items():
+        if col not in existing:
+            conn.execute(f"ALTER TABLE scores ADD COLUMN {col} {col_type}")
+            logger.info(f"Migration: Spalte scores.{col} ({col_type}) ergänzt.")
 
 
 # =============================================================================
@@ -277,7 +304,8 @@ def save_score(score_dict: dict) -> None:
                 score_total, rating,
                 sma50, sma200, rs_score,
                 breakout_flag, breakout_age,
-                regime, stop_loss, crv, atr14, atr_ratio, kursziel
+                regime, stop_loss, crv, atr14, atr_ratio, kursziel,
+                stop_buy, trade_risk_pct, trade_chance_pct, trade_crv
             ) VALUES (
                 :ticker, :date, :signal_version, :data_source,
                 :filter_sma50,
@@ -285,34 +313,53 @@ def save_score(score_dict: dict) -> None:
                 :score_total, :rating,
                 :sma50, :sma200, :rs_score,
                 :breakout_flag, :breakout_age,
-                :regime, :stop_loss, :crv, :atr14, :atr_ratio, :kursziel
+                :regime, :stop_loss, :crv, :atr14, :atr_ratio, :kursziel,
+                :stop_buy, :trade_risk_pct, :trade_chance_pct, :trade_crv
             )
         """, score_dict)
 
 
 def get_latest_scores(target_date: str = None, min_score: int = 0) -> pd.DataFrame:
     """
-    Liest alle Scores für ein Datum.
-    Wenn kein Datum angegeben: neuestes verfügbares Datum.
+    Liest die jeweils neuesten Scores.
+
+    Wenn kein target_date angegeben ist: für JEDEN Ticker einzeln dessen
+    eigenes neuestes Datum verwenden (statt ein global geteiltes MAX(date)
+    über alle Ticker). DAX (XETRA) und US-Werte (NYSE/NASDAQ) haben
+    unterschiedliche Handelskalender — ein global geteiltes Datum würde an
+    Tagen mit abweichenden Feiertagen einen ganzen Markt aus der Liste
+    werfen, obwohl für ihn aktuelle Scores vorliegen.
     """
     with get_connection() as conn:
         if target_date is None:
-            row = conn.execute(
-                "SELECT MAX(date) as d FROM scores WHERE score_total IS NOT NULL"
-            ).fetchone()
-            if not row or not row["d"]:
-                return pd.DataFrame()
-            target_date = row["d"]
-
-        rows = conn.execute("""
-            SELECT s.*, st.name
-            FROM scores s
-            LEFT JOIN stocks st ON s.ticker = st.ticker
-            WHERE s.date = ?
-              AND s.score_total IS NOT NULL
-              AND s.score_total >= ?
-            ORDER BY s.score_total DESC
-        """, (target_date, min_score)).fetchall()
+            rows = conn.execute("""
+                SELECT s.*, st.name,
+                       (SELECT p.close FROM prices p
+                        WHERE p.ticker = s.ticker AND p.date <= s.date
+                        ORDER BY p.date DESC LIMIT 1) AS price_close
+                FROM scores s
+                LEFT JOIN stocks st ON s.ticker = st.ticker
+                WHERE s.score_total IS NOT NULL
+                  AND s.score_total >= ?
+                  AND s.date = (
+                        SELECT MAX(s2.date) FROM scores s2
+                        WHERE s2.ticker = s.ticker AND s2.score_total IS NOT NULL
+                  )
+                ORDER BY s.score_total DESC
+            """, (min_score,)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT s.*, st.name,
+                       (SELECT p.close FROM prices p
+                        WHERE p.ticker = s.ticker AND p.date <= s.date
+                        ORDER BY p.date DESC LIMIT 1) AS price_close
+                FROM scores s
+                LEFT JOIN stocks st ON s.ticker = st.ticker
+                WHERE s.date = ?
+                  AND s.score_total IS NOT NULL
+                  AND s.score_total >= ?
+                ORDER BY s.score_total DESC
+            """, (target_date, min_score)).fetchall()
 
     if not rows:
         return pd.DataFrame()
@@ -332,34 +379,29 @@ def get_score_detail(ticker: str, target_date: str = None) -> dict | None:
             target_date = row["d"]
 
         row = conn.execute("""
-            SELECT s.*, st.name, p.close as price_close
+            SELECT s.*, st.name,
+                   (SELECT p.close FROM prices p
+                    WHERE p.ticker = s.ticker AND p.date <= s.date
+                    ORDER BY p.date DESC LIMIT 1) AS price_close,
+                   (SELECT p.date FROM prices p
+                    WHERE p.ticker = s.ticker AND p.date <= s.date
+                    ORDER BY p.date DESC LIMIT 1) AS price_date
             FROM scores s
             LEFT JOIN stocks st ON s.ticker = st.ticker
-            LEFT JOIN prices p ON s.ticker = p.ticker AND s.date = p.date
             WHERE s.ticker = ? AND s.date = ?
         """, (ticker, target_date)).fetchone()
 
         if not row:
             return None
-        
+
         detail = dict(row)
-        
-        # Berechne stop_buy und risiko
-        stop_loss = detail.get("stop_loss")
-        atr14 = detail.get("atr14")
-        price_close = detail.get("price_close")
-        
-        if stop_loss and atr14:
-            # stop_buy = stop_loss + (2 * ATR)
-            detail["stop_buy"] = stop_loss + (2 * atr14)
-        else:
-            detail["stop_buy"] = None
-        
-        # Risiko in Prozent
-        if price_close and stop_loss:
-            detail["risk_pct"] = abs((price_close - stop_loss) / price_close * 100)
-        else:
-            detail["risk_pct"] = None
+
+        # stop_buy, trade_risk_pct, trade_chance_pct, trade_crv kommen jetzt
+        # direkt aus der scores-Tabelle (in scoring/scorer.py berechnet und
+        # gespeichert) — keine Neuberechnung mehr nötig oder gewünscht hier.
+
+        from trading.trade_status import determine_trade_status
+        detail["trade_status"] = determine_trade_status(detail)
 
     return detail
 
