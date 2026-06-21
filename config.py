@@ -99,6 +99,45 @@ RISK_POINTS = [
 ]
 
 # -----------------------------------------------------------------------------
+# Handelsstatus-Engine (Phase 2) — Entscheidungsebene, NICHT Teil des
+# gesperrten 100-Punkte-Score-Systems oben. Bezieht sich auf trade_crv
+# (einstiegsbasiert, siehe trading/trade_metrics.py), nicht auf 'crv'.
+# -----------------------------------------------------------------------------
+TRADE_STATUS_KAUFEN_MIN_SCORE = 85
+TRADE_STATUS_KAUFEN_MAX_SIGNALALTER = 2        # Tage seit Breakout
+TRADE_STATUS_KAUFEN_MIN_CRV = 2.0
+TRADE_STATUS_STOPBUY_MIN_SCORE = 75
+TRADE_STATUS_BEOBACHTEN_MIN_SCORE = 65
+# Ab wie viel % oberhalb des Stop-Buy-Niveaus gilt der Einstieg als verpasst
+TRADE_STATUS_VERPASST_BUFFER_PCT = 5.0
+
+TRADE_STATUS_AMPEL = {
+    "KAUFEN":     "gruen",
+    "STOP-BUY":   "gelb",
+    "BEOBACHTEN": "gelb",
+    "VERPASST":   "rot",
+    "VERWERFEN":  "rot",
+}
+
+# Sortierreihenfolge für Phase 4 (1 = oben in der Liste)
+TRADE_STATUS_RANK = {
+    "KAUFEN": 1,
+    "STOP-BUY": 2,
+    "BEOBACHTEN": 3,
+    "VERPASST": 4,
+    "VERWERFEN": 5,
+}
+
+# CRV-Farbskala (Phase 3) — angewendet auf trade_crv
+TRADE_CRV_COLOR_STUFEN = [
+    {"crv_min": 3.0, "farbe": "#1b5e20", "label": "Hervorragend"},
+    {"crv_min": 2.0, "farbe": "#2e7d32", "label": "Gut"},
+    {"crv_min": 1.5, "farbe": "#f9a825", "label": "Akzeptabel"},
+    {"crv_min": 1.0, "farbe": "#ef6c00", "label": "Schwach"},
+    {"crv_min": None, "farbe": "#c62828", "label": "Ungünstig"},
+]
+
+# -----------------------------------------------------------------------------
 # Bewertungsstufen
 # -----------------------------------------------------------------------------
 RATING_THRESHOLDS = {
