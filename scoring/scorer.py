@@ -25,6 +25,8 @@ from signals.relative_strength import calc_rs
 from signals.breakout import calc_breakout
 from signals.regime import calc_regime
 from signals.risk import calc_risk
+from trading.stop_buy_calculator import calculate_stop_buy
+from trading.trade_metrics import calculate_trade_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +100,8 @@ def calculate_score(ticker: str, target_date: date, index_name: str) -> dict | N
             "breakout_flag": None, "breakout_age": None,
             "regime": None, "stop_loss": None, "crv": None,
             "atr14": None, "atr_ratio": None, "kursziel": None,
+            "stop_buy": None, "trade_risk_pct": None,
+            "trade_chance_pct": None, "trade_crv": None,
         }
         save_score(score_dict)
         logger.info(f"{ticker}: Hard Filter SMA50 nicht bestanden — kein Score")
@@ -109,6 +113,15 @@ def calculate_score(ticker: str, target_date: date, index_name: str) -> dict | N
     score_breakout, breakout_flag, breakout_age = calc_breakout(prices)
     score_regime, regime_status = calc_regime(index_prices)
     score_risk, stop_loss, crv, atr14, atr_ratio, kursziel = calc_risk(prices)
+
+    # Stop-Buy (widerstandsbasiert, 20-Tage-Hoch × 1,01) — KEIN Einfluss auf
+    # score_total/score_risk. Sowie die darauf basierenden Handelskennzahlen
+    # (siehe trading/trade_metrics.py: Risiko/Chance/CRV relativ zum
+    # Einstiegspreis statt zum aktuellen Kurs).
+    stop_buy = calculate_stop_buy(prices, score_dict={})
+    trade_risk_pct, trade_chance_pct, trade_crv = calculate_trade_metrics(
+        stop_buy, stop_loss, kursziel
+    )
 
     # 4. Schritt 1: Summe bilden
     score_total = score_sma200 + score_rs + score_breakout + score_regime + score_risk
@@ -139,6 +152,10 @@ def calculate_score(ticker: str, target_date: date, index_name: str) -> dict | N
         "atr14": atr14,
         "atr_ratio": atr_ratio,
         "kursziel": kursziel,
+        "stop_buy": stop_buy,
+        "trade_risk_pct": trade_risk_pct,
+        "trade_chance_pct": trade_chance_pct,
+        "trade_crv": trade_crv,
     }
 
     # 7. In DB speichern
