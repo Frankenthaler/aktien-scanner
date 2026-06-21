@@ -33,6 +33,10 @@ from scoring.ai_summary import generate_summary
 from config import RATING_THRESHOLDS
 
 from trading.recommendation_tracker import init_swing_trading_schema, save_swing_trade_recommendation
+from trading.trade_status import (
+    determine_trade_status, ampel_for_status, rank_for_status,
+    has_required_trade_fields, crv_color,
+)
 
 # =============================================================================
 # Konfiguration / Konstanten
@@ -43,6 +47,19 @@ COLOR_YELLOW = "#f39c12"
 COLOR_RED = "#e74c3c"
 COLOR_GRAY = "#95a5a6"
 
+TRADE_STATUS_COLOR_HEX = {
+    "gruen": COLOR_GREEN,
+    "gelb": COLOR_YELLOW,
+    "rot": COLOR_RED,
+}
+TRADE_STATUS_ORDER = ["KAUFEN", "STOP-BUY", "BEOBACHTEN", "VERPASST", "VERWERFEN"]
+
+# 'rating' (Starkes Kaufsignal/Interessant/Beobachten/Kein Kauf) ist Teil des
+# gesperrten Score-Systems (rein score-basiert) und bleibt als Zusatzinfo in
+# der Score-Aufschlüsselung erhalten. Für Filter/Sortierung/Ampel in Liste
+# und Detailkarte ist seit Phase 2 NICHT mehr 'rating', sondern der
+# Handelsstatus (trading/trade_status.py) maßgeblich — der bezieht CRV,
+# Signalalter und das Verhältnis Kurs/Stop-Buy mit ein.
 RATING_ORDER = ["Starkes Kaufsignal", "Interessant", "Beobachten", "Kein Kauf"]
 
 RATING_COLORS = {
@@ -252,6 +269,14 @@ def render_startseite():
 
     scores_df = get_latest_scores()
 
+    if not scores_df.empty:
+        scores_df["trade_status"] = scores_df.apply(
+            lambda r: determine_trade_status(r.to_dict()), axis=1
+        )
+        scores_df["has_required_fields"] = scores_df.apply(
+            lambda r: has_required_trade_fields(r.to_dict()), axis=1
+        )
+
     if scores_df.empty:
         st.info(
             "Noch keine Daten vorhanden. Bitte zuerst auf "
@@ -379,19 +404,19 @@ def render_startseite():
     st.subheader("bersicht")
     st.markdown(f"**{len(scores_df)}** Aktien wurden heute analysiert.")
 
-    # Anzahl je Bewertungsstufe
-    rating_counts = scores_df["rating"].value_counts()
+    # Anzahl je Handelsstatus (Phase 2 — ersetzt das rein score-basierte Rating)
+    status_counts = scores_df["trade_status"].value_counts()
 
-    cols = st.columns(len(RATING_ORDER))
-    for i, rating in enumerate(RATING_ORDER):
-        count = int(rating_counts.get(rating, 0))
+    cols = st.columns(len(TRADE_STATUS_ORDER))
+    for i, status in enumerate(TRADE_STATUS_ORDER):
+        count = int(status_counts.get(status, 0))
         with cols[i]:
-            color = RATING_COLORS[rating]
+            color = TRADE_STATUS_COLOR_HEX[ampel_for_status(status)]
             st.markdown(
                 f'<div style="text-align:center;">'
                 f'<div style="font-size:1.6rem;font-weight:bold;color:{color};">'
                 f'{count}</div>'
-                f'<div style="font-size:0.75rem;color:#666;">{rating}</div>'
+                f'<div style="font-size:0.7rem;color:#666;">{status}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -418,8 +443,8 @@ def render_startseite():
         index_filter = st.selectbox("Index", index_options)
 
     with col_f2:
-        rating_options = ["Alle"] + RATING_ORDER
-        rating_filter = st.selectbox("Bewertung", rating_options)
+        status_options = ["Alle"] + TRADE_STATUS_ORDER
+        status_filter = st.selectbox("Handelsstatus", status_options)
 
     # Filter anwenden
     filtered = scores_df.copy()
@@ -429,23 +454,45 @@ def render_startseite():
     elif index_filter == "USA (S&P 500 / Nasdaq 100)":
         filtered = filtered[~filtered["ticker"].astype(str).str.endswith(".DE")]
 
-    if rating_filter != "Alle":
-        filtered = filtered[filtered["rating"] == rating_filter]
+    if status_filter != "Alle":
+        filtered = filtered[filtered["trade_status"] == status_filter]
+
+    # Kandidaten mit Datenlücken (fehlender Kurs/Stop-Buy/Stop-Loss) gehören
+    # nicht in eine Liste, die zur Handelsentscheidung dienen soll — sie
+    # würden sonst mit "-" auftauchen und Vertrauen kosten (siehe Korrektur
+    # zur Detailkarte).
+    excluded_count = int((~filtered["has_required_fields"]).sum())
+    filtered = filtered[filtered["has_required_fields"]]
 
     # -------------------------------------------------------------------
     # Top-20-Rangliste
     # -------------------------------------------------------------------
     if filtered.empty:
         st.info("Keine Aktien entsprechen den gewhlten Filtern.")
+        if excluded_count:
+            st.caption(f"{excluded_count} weitere Kandidat(en) mit unvollständigen "
+                       f"Daten werden nicht angezeigt.")
         return
 
-    top20 = filtered.sort_values("score_total", ascending=False).head(20)
+    # Phase 4: Sortierung nach Handelsstatus, dann CRV, dann Score —
+    # die besten TRADES sollen oben stehen, nicht die höchsten Scores.
+    filtered = filtered.copy()
+    filtered["_status_rank"] = filtered["trade_status"].apply(rank_for_status)
+    filtered["_crv_sort"] = filtered["trade_crv"].fillna(-1)
+    top20 = filtered.sort_values(
+        ["_status_rank", "_crv_sort", "score_total"],
+        ascending=[True, False, False],
+    ).head(20)
+
+    if excluded_count:
+        st.caption(f"{excluded_count} weitere Kandidat(en) mit unvollständigen "
+                   f"Daten werden nicht angezeigt.")
 
     # Header-Zeile
     header_cols = st.columns([3, 2, 2, 1])
     header_cols[0].markdown("**Aktie**")
     header_cols[1].markdown("**Score**")
-    header_cols[2].markdown("**Bewertung**")
+    header_cols[2].markdown("**Status**")
     header_cols[3].markdown("**Trend**")
 
     for _, row in top20.iterrows():
@@ -471,10 +518,10 @@ def render_startseite():
             )
 
         with cols[2]:
-            color = RATING_COLORS.get(row["rating"], COLOR_GRAY)
+            color = TRADE_STATUS_COLOR_HEX[ampel_for_status(row["trade_status"])]
             st.markdown(
                 f'<div style="padding-top:0.6rem;">'
-                f'{ampel_html(color, row["rating"])}</div>',
+                f'{ampel_html(color, row["trade_status"])}</div>',
                 unsafe_allow_html=True,
             )
 
@@ -520,69 +567,79 @@ def render_detailseite():
     score_total = int(detail["score_total"])
     rating = detail["rating"]
     breakout_age = detail.get("breakout_age")
-    crv = detail.get("crv")
     atr_ratio = detail.get("atr_ratio")
-    
+
+    trade_status = detail.get("trade_status") or determine_trade_status(detail)
+    status_color = TRADE_STATUS_COLOR_HEX[ampel_for_status(trade_status)]
+
+    price = detail.get("price_close")
+    stop_buy = detail.get("stop_buy")
+    stop_loss = detail.get("stop_loss")
+    kursziel = detail.get("kursziel")
+    trade_risk_pct = detail.get("trade_risk_pct")
+    trade_chance_pct = detail.get("trade_chance_pct")
+    trade_crv = detail.get("trade_crv")
+
     # ========================================================================
     # EBENE 1 - SWING-TRADE HEADER
     # ========================================================================
-    
+
     st.title(f"{name} ({ticker})")
-    
-    # Handlungssignal
-    color = RATING_COLORS.get(rating, COLOR_GRAY)
-    emoji = "GREEN" if rating in ["Starkes Kaufsignal", "Interessant"] else "RED" if rating == "Kein Kauf" else "YELLOW"
-    
+
+    # Handelsstatus (Phase 2) — ersetzt das rein score-basierte Rating als
+    # primäre Handlungsempfehlung. 'rating' bleibt unten in der
+    # Score-Aufschlüsselung als Zusatzinfo sichtbar.
     st.markdown(
-        f'<div style="background-color:{color};color:white;padding:1rem;border-radius:8px;margin:1rem 0;text-align:center;">'
-        f'<div style="font-size:2rem;font-weight:bold;">{emoji} {rating}</div>'
+        f'<div style="background-color:{status_color};color:white;padding:1rem;border-radius:8px;margin:1rem 0;text-align:center;">'
+        f'<div style="font-size:2rem;font-weight:bold;">{trade_status}</div>'
         f'<div style="font-size:1.2rem;">Score: {score_total} / 100</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
-    
+
+    if not has_required_trade_fields(detail):
+        st.warning(
+            "Unvollständige Daten für diesen Kandidaten (Kurs, Stop-Buy oder "
+            "Stop-Loss fehlen). Die Kennzahlen unten sind daher nicht "
+            "belastbar — bitte Daten aktualisieren."
+        )
+
     # Kernkennzahlen
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
-        price = detail.get("price_close")
-        st.metric("Aktueller Kurs", f"{price:.2f}" if price else "-")
+        st.metric("Aktueller Kurs", f"{price:.2f}" if price is not None else "-")
     with col2:
-        stop_buy = detail.get("stop_buy")
-        st.metric("Stop-Buy", f"{stop_buy:.2f}" if stop_buy else "-")
+        st.metric("Einstieg (Stop-Buy)", f"{stop_buy:.2f}" if stop_buy is not None else "-")
     with col3:
-        stop_loss = detail.get("stop_loss")
-        st.metric("Stop-Loss", f"{stop_loss:.2f}" if stop_loss else "-")
+        st.metric("Stop-Loss", f"{stop_loss:.2f}" if stop_loss is not None else "-")
     with col4:
-        if price and stop_loss:
-            risk_pct = abs((price - stop_loss) / price * 100)
-            st.metric("Risiko", f"{risk_pct:.1f}%")
-        else:
-            st.metric("Risiko", "-")
-    
-    # Kursziele & CRV
+        st.metric("Risiko", f"{trade_risk_pct:.1f}%" if trade_risk_pct is not None else "-")
+
+    # Kursziel & CRV (einstiegsbasiert, siehe trading/trade_metrics.py)
     col1, col2, col3 = st.columns(3)
     with col1:
-        kursziel = detail.get("kursziel")
-        if kursziel:
+        if kursziel is not None:
             st.metric("Kursziel 1", f"{kursziel:.2f}")
+            if trade_chance_pct is not None:
+                st.caption(f"Chance: +{trade_chance_pct:.1f}%")
         else:
             st.info("Kursziel: Aktie zu nah am Hochpunkt. Einstieg nur ber Stop-Buy.")
     with col2:
-        st.metric("Kursziel 2", "-")
-    with col3:
-        if crv:
-            st.metric("Chance/Risiko", f"{crv:.2f}")
+        st.markdown('<div style="font-size:0.8rem;color:#666;">Chance/Risiko</div>',
+                    unsafe_allow_html=True)
+        if trade_crv is not None:
+            farbinfo = crv_color(trade_crv)
+            st.markdown(
+                f'<div style="font-size:1.6rem;font-weight:bold;color:{farbinfo["farbe"]};">'
+                f'{trade_crv:.2f}</div>'
+                f'<div style="font-size:0.75rem;color:{farbinfo["farbe"]};">{farbinfo["label"]}</div>',
+                unsafe_allow_html=True,
+            )
         else:
-            st.info("CRV: Nicht bestimmbar.")
-    
-    # Metadaten
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Signalalter", f"{breakout_age} Tage" if breakout_age else "-")
-    with col2:
-        setup_type = "Breakout" if detail.get("breakout_flag") else "Beobachtung"
-        st.metric("Setup-Typ", setup_type)
+            st.info("Nicht bestimmbar.")
+    with col3:
+        st.metric("Signalalter", f"{breakout_age} Tage" if breakout_age is not None else "-")
     
     st.divider()
     
@@ -631,12 +688,13 @@ def render_detailseite():
     st.divider()
     
     risk_score = detail.get("score_risk", 0)
+    score_crv = detail.get("crv")  # gesperrte Score-CRV (aktueller Kurs als Basis) — NICHT trade_crv
     st.markdown(f"**Risiko / CRV:** {risk_score} / 15 Punkte")
-    if crv and crv > 1.5:
+    if score_crv and score_crv > 1.5:
         st.success("Hervorragendes CRV")
-    elif crv and crv > 1:
+    elif score_crv and score_crv > 1:
         st.success("Gutes CRV")
-    elif crv:
+    elif score_crv:
         st.warning("Schwaches CRV")
     else:
         st.info("~ CRV nicht bestimmbar")
