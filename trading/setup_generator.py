@@ -65,19 +65,82 @@ def _find_next_resistance_above(prices_close: np.ndarray, above: float,
     return min(tested_levels)
 
 
-def _find_swing_low(prices: pd.DataFrame, window: int = 10) -> Optional[float]:
-    """Findet das letzte lokale Swing-Tief."""
+def _find_swing_low(
+    prices: pd.DataFrame,
+    window: int = 5,
+    recency_days: int = 20,
+    strength_factor: float = 1.5,
+    max_atr_distance: float = 3.0,
+) -> Optional[float]:
+    """
+    Verbesserter Swing-Low-Algorithmus mit Recency-Bevorzugung und Distanz-Cap.
+
+    Logik:
+    1. Bevorzuge Swing-Tiefs der letzten 'recency_days' Handelstage.
+    2. Ältere Tiefs werden nur verwendet wenn sie charttechnisch noch
+       maßgeblich sind — d.h. nicht durch nachfolgende Kurse signifikant
+       unterschritten wurden UND nicht mehr als max_atr_distance × ATR
+       vom aktuellen Kurs entfernt liegen.
+    3. Kein passendes Tief → None → ATR-Fallback in generate_trade_setup.
+
+    Args:
+        window:           Halbfenster für lokales Minimum (Tage links/rechts)
+        recency_days:     Bevorzugter Suchbereich in Handelstagen
+        strength_factor:  Tief gilt als gebrochen wenn danach > X × ATR darunter
+        max_atr_distance: Tief maximal X × ATR unter aktuellem Close entfernt
+    """
     if "low" not in prices.columns or len(prices) < window * 2 + 1:
         return None
+
     lows = prices["low"].values
+    close_col = "adj_close" if "adj_close" in prices.columns else "close"
+    closes = prices[close_col].values if close_col in prices.columns else lows
+    current_close = float(closes[-1])
     n = len(lows)
-    for i in range(n - 1, window - 1, -1):
-        left = lows[max(0, i - window):i]
-        right = lows[i + 1:min(n, i + window + 1)]
+
+    # ATR der letzten 14 Tage für Relevanzschwellwert
+    if "high" in prices.columns and len(prices) >= 15:
+        h = prices["high"].values[-14:]
+        l = lows[-14:]
+        p = closes[-15:-1]
+        tr = np.maximum(h - l, np.maximum(np.abs(h - p), np.abs(l - p)))
+        atr = float(tr.mean())
+    else:
+        atr = float(np.std(lows[-20:])) if len(lows) >= 5 else 1.0
+    if atr <= 0:
+        atr = current_close * 0.02
+
+    def is_swing_low(idx: int) -> bool:
+        left = lows[max(0, idx - window):idx]
+        right = lows[idx + 1:min(n, idx + window + 1)]
         if len(left) == 0 or len(right) == 0:
-            continue
-        if lows[i] < left.min() and lows[i] < right.min():
+            return False
+        return lows[idx] < left.min() and lows[idx] < right.min()
+
+    def still_relevant(idx: int) -> bool:
+        """Tief ist noch charttechnisch maßgeblich."""
+        swing_val = lows[idx]
+        # Distanz-Cap: Tief darf nicht mehr als max_atr_distance × ATR
+        # unter aktuellem Close liegen (verhindert 40%-Stops bei AMAT etc.)
+        if current_close - swing_val > max_atr_distance * atr:
+            return False
+        # Nicht danach signifikant unterschritten (Niveau gilt als gebrochen)
+        subsequent = lows[idx + 1:]
+        if len(subsequent) > 0 and subsequent.min() < swing_val - strength_factor * atr:
+            return False
+        return True
+
+    # Schritt 1: Bevorzugter Suchbereich (letzte recency_days)
+    recent_start = max(0, n - recency_days)
+    for i in range(n - 1, recent_start - 1, -1):
+        if is_swing_low(i) and still_relevant(i):
             return float(lows[i])
+
+    # Schritt 2: Älterer Bereich — nur charttechnisch noch maßgebliche Tiefs
+    for i in range(recent_start - 1, window - 1, -1):
+        if is_swing_low(i) and still_relevant(i):
+            return float(lows[i])
+
     return None
 
 
@@ -178,7 +241,13 @@ def generate_trade_setup(
             stop_buy = current_price * 1.005
 
         # Schritt 3: Stop-Loss = Swing-Tief − 0.3 × ATR
-        swing_low = _find_swing_low(prices, window=SETUP_SWING_LOW_WINDOW)
+        swing_low = _find_swing_low(
+            prices,
+            window=SETUP_SWING_LOW_WINDOW,
+            recency_days=SETUP_SWING_LOW_RECENCY,
+            strength_factor=SETUP_SWING_LOW_STRENGTH,
+            max_atr_distance=SETUP_SWING_LOW_MAX_ATR,
+        )
         sl_typ = "swing_low"
         if swing_low is not None and swing_low < stop_buy:
             stop_loss = swing_low - SETUP_SL_SWING_BUFFER * atr14
