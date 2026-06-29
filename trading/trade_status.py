@@ -16,7 +16,7 @@ from config import (
     TRADE_STATUS_STOPBUY_MIN_CRV,
     TRADE_STATUS_BEOBACHTEN_MIN_SCORE, TRADE_STATUS_VERPASST_BUFFER_PCT,
     TRADE_STATUS_AMPEL, TRADE_STATUS_RANK, TRADE_CRV_COLOR_STUFEN,
-    MAX_DISTANCE_EMA20_PCT,
+    MAX_DISTANCE_EMA20_PCT, SETUP_SB_MAX_ABSTAND_PCT,
 )
 
 VERWERFEN = "VERWERFEN"
@@ -51,6 +51,12 @@ def is_valid_stopbuy_setup(detail: dict) -> bool:
     if price_close is None or stop_buy is None:
         return False
     if stop_buy <= price_close:
+        return False
+
+    # Stop-Buy darf nicht mehr als SETUP_SB_MAX_ABSTAND_PCT über aktuellem Kurs liegen
+    # (verhindert unrealistische Einstiegsniveaus bei weit gelaufenen Aktien)
+    sb_abstand_pct = (stop_buy - price_close) / price_close * 100
+    if sb_abstand_pct > SETUP_SB_MAX_ABSTAND_PCT:
         return False
     if trade_crv is None:
         return False
