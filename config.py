@@ -107,6 +107,7 @@ TRADE_STATUS_KAUFEN_MIN_SCORE = 85
 TRADE_STATUS_KAUFEN_MAX_SIGNALALTER = 2        # Tage seit Breakout
 TRADE_STATUS_KAUFEN_MIN_CRV = 2.0
 TRADE_STATUS_STOPBUY_MIN_SCORE = 75
+TRADE_STATUS_STOPBUY_MIN_CRV = 1.5          # Mindest-CRV für STOP-BUY-Signal
 TRADE_STATUS_BEOBACHTEN_MIN_SCORE = 65
 # Ab wie viel % oberhalb des Stop-Buy-Niveaus gilt der Einstieg als verpasst
 TRADE_STATUS_VERPASST_BUFFER_PCT = 5.0
@@ -136,6 +137,15 @@ TRADE_CRV_COLOR_STUFEN = [
     {"crv_min": 1.0, "farbe": "#ef6c00", "label": "Schwach"},
     {"crv_min": None, "farbe": "#c62828", "label": "Ungünstig"},
 ]
+
+
+# -----------------------------------------------------------------------------
+# EMA20-Abstandsregel (Setup-Qualität)
+# -----------------------------------------------------------------------------
+# STOP-BUY / KAUFEN nur wenn Abstand Kurs zu EMA20 <= diesem Wert.
+# Über diesem Wert → maximal BEOBACHTEN (Aktie zu weit gelaufen).
+EMA20_PERIOD = 20
+MAX_DISTANCE_EMA20_PCT = 5.5
 
 # -----------------------------------------------------------------------------
 # Bewertungsstufen
