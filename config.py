@@ -157,7 +157,11 @@ SETUP_SB_ATR_FACTOR      = 0.5   # Stop-Buy = Widerstand + X × ATR
 SETUP_SL_ATR_FACTOR      = 2.0   # Stop-Loss Fallback = Stop-Buy - X × ATR
 SETUP_SL_SWING_BUFFER    = 0.3   # Stop-Loss = Swing-Tief - X × ATR
 SETUP_TP_ATR_FALLBACK    = 2.5   # TP1 Fallback = Stop-Buy + X × ATR (kein Deckel)
-SETUP_SWING_LOW_WINDOW   = 10    # Halbfenster für Swing-Tief-Suche (Handelstage)
+SETUP_SWING_LOW_WINDOW      = 5     # Halbfenster für Swing-Tief-Suche
+SETUP_SWING_LOW_RECENCY     = 20    # Bevorzugter Suchbereich in Handelstagen
+SETUP_SWING_LOW_STRENGTH    = 1.5   # Tief gilt als gebrochen wenn > X × ATR darunter
+SETUP_SWING_LOW_MAX_ATR     = 3.0   # Tief maximal X × ATR unter aktuellem Kurs
+SETUP_SB_MAX_ABSTAND_PCT    = 8.0   # Stop-Buy max X% über aktuellem Kurs (sonst kein STOP-BUY)
 SETUP_MIN_RESISTANCE_TESTS = 2   # Mindestanzahl Tests für gültigen Widerstand
 SETUP_QUALITY_THRESHOLDS = {     # Setup-Qualität A+/A/B/C
     "A+": 75,
