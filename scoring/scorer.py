@@ -25,8 +25,7 @@ from signals.relative_strength import calc_rs
 from signals.breakout import calc_breakout
 from signals.regime import calc_regime
 from signals.risk import calc_risk
-from trading.stop_buy_calculator import calculate_stop_buy
-from trading.trade_metrics import calculate_trade_metrics
+from trading.setup_generator import generate_trade_setup
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +101,7 @@ def calculate_score(ticker: str, target_date: date, index_name: str) -> dict | N
             "atr14": None, "atr_ratio": None, "kursziel": None,
             "stop_buy": None, "trade_risk_pct": None,
             "trade_chance_pct": None, "trade_crv": None, "ema20": None,
+            "setup_quality": None, "setup_quality_score": None,
         }
         save_score(score_dict)
         logger.info(f"{ticker}: Hard Filter SMA50 nicht bestanden — kein Score")
@@ -162,6 +162,8 @@ def calculate_score(ticker: str, target_date: date, index_name: str) -> dict | N
         "trade_chance_pct": trade_chance_pct,
         "trade_crv": trade_crv,
         "ema20": ema20,
+        "setup_quality": setup_quality,
+        "setup_quality_score": setup_quality_score,
     }
 
     # 7. In DB speichern
