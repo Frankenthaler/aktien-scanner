@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import (
     SIGNAL_VERSION, REGIME_SCORE_CAP, RATING_THRESHOLDS,
-    MIN_TRADING_DAYS,
+    MIN_TRADING_DAYS, EMA20_PERIOD,
 )
 from data.database import get_prices, get_index_prices, save_score
 from signals.filter_sma50 import check_sma50
@@ -101,7 +101,7 @@ def calculate_score(ticker: str, target_date: date, index_name: str) -> dict | N
             "regime": None, "stop_loss": None, "crv": None,
             "atr14": None, "atr_ratio": None, "kursziel": None,
             "stop_buy": None, "trade_risk_pct": None,
-            "trade_chance_pct": None, "trade_crv": None,
+            "trade_chance_pct": None, "trade_crv": None, "ema20": None,
         }
         save_score(score_dict)
         logger.info(f"{ticker}: Hard Filter SMA50 nicht bestanden — kein Score")
@@ -119,6 +119,11 @@ def calculate_score(ticker: str, target_date: date, index_name: str) -> dict | N
     # (siehe trading/trade_metrics.py: Risiko/Chance/CRV relativ zum
     # Einstiegspreis statt zum aktuellen Kurs).
     stop_buy = calculate_stop_buy(prices, score_dict={})
+
+    # EMA20 für Setup-Qualitätsprüfung (EMA20-Abstandsregel in trade_status.py)
+    close_col = "adj_close" if "adj_close" in prices.columns else "close"
+    ema20 = float(prices[close_col].ewm(span=EMA20_PERIOD, adjust=False).mean().iloc[-1])
+
     trade_risk_pct, trade_chance_pct, trade_crv = calculate_trade_metrics(
         stop_buy, stop_loss, kursziel
     )
@@ -156,6 +161,7 @@ def calculate_score(ticker: str, target_date: date, index_name: str) -> dict | N
         "trade_risk_pct": trade_risk_pct,
         "trade_chance_pct": trade_chance_pct,
         "trade_crv": trade_crv,
+        "ema20": ema20,
     }
 
     # 7. In DB speichern
