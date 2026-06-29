@@ -109,6 +109,27 @@ DAX40_FALLBACK_TICKERS = [
     "SHL.DE", "SY1.DE", "VOW3.DE", "VNA.DE", "ZAL.DE",
 ]
 
+# =============================================================================
+# Fallback Nasdaq 100 (verifiziert Stand Q2 2025)
+# =============================================================================
+# Analog zum DAX-Fallback: wird verwendet wenn Wikipedia nicht erreichbar ist.
+# Enthält alle 101 Nasdaq-100-Komponenten (Stand Juni 2025).
+# Bei Fehlschlag des Live-Abrufs wird status="ok" mit fallback=True zurückgegeben.
+NDX100_FALLBACK_TICKERS = [
+    "ADBE", "AMD", "ABNB", "GOOGL", "GOOG", "AMZN", "AEP", "AMGN",
+    "ADI", "ANSS", "ARM", "ASML", "AZN", "TEAM", "ADSK", "ADP",
+    "AXON", "BIIB", "BKNG", "AVGO", "CDNS", "CDW", "CHTR", "CTAS",
+    "CSCO", "CCEP", "CTSH", "CMCSA", "CEG", "CPRT", "CSGP", "COST",
+    "CRWD", "CSX", "DDOG", "DXCM", "FANG", "DLTR", "EA", "EBAY",
+    "ENPH", "EXC", "FAST", "FTNT", "GEHC", "GILD", "GFS", "HON",
+    "HOOD", "IDXX", "ILMN", "INTC", "INTU", "ISRG", "KDP", "KLAC",
+    "KHC", "LRCX", "LULU", "MRVL", "MTCH", "MELI", "META", "MCHP",
+    "MU", "MSFT", "MRNA", "MDLZ", "MDB", "MNST", "NFLX", "NVDA",
+    "NXPI", "ORLY", "ON", "PCAR", "PANW", "PAYX", "PYPL", "PDD",
+    "QCOM", "REGN", "ROST", "SNPS", "SBUX", "TSLA", "TXN", "TTD",
+    "TMUS", "VRSN", "VRSK", "WBD", "WDAY", "XEL", "ZS",
+]
+
 
 # =============================================================================
 # Hilfsfunktionen
@@ -454,7 +475,7 @@ def get_index_constituents(allow_fallback: bool = True) -> dict:
         errors["SP500"] = sp500_result["error"]
         failed_indices.append("SP500")
 
-    # --- Nasdaq 100 (KEIN Fallback) ---
+    # --- Nasdaq 100 (mit Fallback analog DAX) ---
     ndx_result = fetch_nasdaq100()
     if ndx_result["status"] == "ok":
         for t in ndx_result["tickers"]:
@@ -466,7 +487,19 @@ def get_index_constituents(allow_fallback: bool = True) -> dict:
             })
     else:
         errors["NDX100"] = ndx_result["error"]
-        failed_indices.append("NDX100")
+        if allow_fallback:
+            fallback_used.append("NDX100")
+            now = _now_iso()
+            for t in NDX100_FALLBACK_TICKERS:
+                records.append({
+                    "ticker": t, "index": "NDX100",
+                    "source": "interner Fallback (verifizierte NDX100-Liste, "
+                              "siehe NDX100_FALLBACK_TICKERS)",
+                    "fetched_at": now,
+                    "fallback": True,
+                })
+        else:
+            failed_indices.append("NDX100")
 
     # Deduplizierung gemäß DEDUP_PRIORITY
     records = _dedupe(records)
