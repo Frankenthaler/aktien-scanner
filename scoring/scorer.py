@@ -114,19 +114,24 @@ def calculate_score(ticker: str, target_date: date, index_name: str) -> dict | N
     score_regime, regime_status = calc_regime(index_prices)
     score_risk, stop_loss, crv, atr14, atr_ratio, kursziel = calc_risk(prices)
 
-    # Stop-Buy (widerstandsbasiert, 20-Tage-Hoch × 1,01) — KEIN Einfluss auf
-    # score_total/score_risk. Sowie die darauf basierenden Handelskennzahlen
-    # (siehe trading/trade_metrics.py: Risiko/Chance/CRV relativ zum
-    # Einstiegspreis statt zum aktuellen Kurs).
-    stop_buy = calculate_stop_buy(prices, score_dict={})
-
-    # EMA20 für Setup-Qualitätsprüfung (EMA20-Abstandsregel in trade_status.py)
+    # EMA20 für Setup-Qualitätsprüfung
     close_col = "adj_close" if "adj_close" in prices.columns else "close"
     ema20 = float(prices[close_col].ewm(span=EMA20_PERIOD, adjust=False).mean().iloc[-1])
 
-    trade_risk_pct, trade_chance_pct, trade_crv = calculate_trade_metrics(
-        stop_buy, stop_loss, kursziel
+    # Integrierter Setup-Generator: SB, SL (trade), TP1, CRV, Qualität
+    # als zusammenhängendes System. Bezugspunkt immer Einstiegspreis (Stop-Buy).
+    # KEIN Einfluss auf das gesperrte score_total/score_risk/crv-System.
+    setup = generate_trade_setup(
+        prices, atr14,
+        ema20=ema20,
+        breakout_age=breakout_age,
     )
+    stop_buy            = setup.get("stop_buy")
+    trade_risk_pct      = setup.get("trade_risk_pct")
+    trade_chance_pct    = setup.get("trade_chance_pct")
+    trade_crv           = setup.get("trade_crv")
+    setup_quality       = setup.get("setup_quality")
+    setup_quality_score = setup.get("setup_quality_score")
 
     # 4. Schritt 1: Summe bilden
     score_total = score_sma200 + score_rs + score_breakout + score_regime + score_risk
