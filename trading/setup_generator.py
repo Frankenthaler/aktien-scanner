@@ -299,8 +299,9 @@ def generate_trade_setup(
     if prices is None or prices.empty or atr14 is None or atr14 <= 0:
         return _empty
 
-    close_col = "adj_close" if "adj_close" in prices.columns else "close"
-    current_price = float(prices[close_col].iloc[-1])
+    try:
+        close_col = "adj_close" if "adj_close" in prices.columns else "close"
+        current_price = float(prices[close_col].iloc[-1])
 
     # ── Schritt 1: Widerstand für Stop-Buy (SETUP_LOOKBACK_SHORT Tage) ──────
     short_window = prices[close_col].tail(SETUP_LOOKBACK_SHORT).values
@@ -420,16 +421,19 @@ def generate_trade_setup(
         f"SL-Typ={sl_typ} TP-Typ={tp_typ}"
     )
 
-    return {
-        "stop_buy":           round(stop_buy, 2),
-        "stop_loss":          round(stop_loss, 2),
-        "tp1":                round(tp1, 2),
-        "trade_crv":          round(trade_crv, 3),
-        "trade_risk_pct":     round(trade_risk_pct, 2),
-        "trade_chance_pct":   round(trade_chance_pct, 2),
-        "setup_quality":      quality,
-        "setup_quality_score": quality_score,
-        "widerstand_hits":    widerstand_hits,
-        "sl_typ":             sl_typ,
-        "tp_typ":             tp_typ,
-    }
+        return {
+            "stop_buy":           round(stop_buy, 2),
+            "stop_loss":          round(stop_loss, 2),
+            "tp1":                round(tp1, 2),
+            "trade_crv":          round(trade_crv, 3),
+            "trade_risk_pct":     round(trade_risk_pct, 2),
+            "trade_chance_pct":   round(trade_chance_pct, 2),
+            "setup_quality":      quality,
+            "setup_quality_score": quality_score,
+            "widerstand_hits":    widerstand_hits,
+            "sl_typ":             sl_typ,
+            "tp_typ":             tp_typ,
+        }
+    except Exception as e:
+        logger.error(f"generate_trade_setup interner Fehler: {e}", exc_info=True)
+        return _empty
