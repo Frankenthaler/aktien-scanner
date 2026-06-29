@@ -337,6 +337,10 @@ def render_startseite():
     last_update = get_latest_update_timestamp()
     st.caption(f"Letzte Aktualisierung: {format_datetime(last_update)}")
 
+    if st.button("🔍 Diagnose (Setup-Validierung)", use_container_width=False):
+        st.session_state.page = "diagnose"
+        st.rerun()
+
     # -------------------------------------------------------------------
     # Schaltflche "Daten aktualisieren"
     # -------------------------------------------------------------------
@@ -741,6 +745,66 @@ def render_detailseite():
             st.markdown(f"**{i}. {item['frage']}**")
 
 
+
+# =============================================================================
+# Diagnose-Seite (temporär — für Setup-Validierung)
+# =============================================================================
+
+def render_diagnose():
+    """Zeigt Top-100 Setups als JSON-Tabelle für externe Analyse."""
+    import json as _json
+    st.title("Diagnose — Top 100 Setups")
+    st.caption("Temporäre Seite für Validierung des Setup-Generators")
+
+    if st.button("← Zurück"):
+        st.session_state.page = "start"
+        st.rerun()
+
+    df = get_latest_scores(min_score=0)
+    if df.empty:
+        st.warning("Keine Daten vorhanden.")
+        return
+
+    # Relevante Spalten
+    cols = [
+        "ticker", "score_total", "setup_quality", "setup_quality_score",
+        "stop_buy", "stop_loss", "tp1", "trade_crv", "trade_risk_pct",
+        "trade_chance_pct", "ema20", "price_close",
+        "atr14", "atr_ratio", "breakout_age", "regime",
+    ]
+    available = [c for c in cols if c in df.columns]
+    top = df[available].head(100)
+
+    # Statistik
+    st.subheader("Statistik")
+    total = len(df)
+    with_setup = int(df["stop_buy"].notna().sum()) if "stop_buy" in df.columns else 0
+    st.write(f"Aktien mit Score: **{total}**")
+    st.write(f"Aktien mit Setup (stop_buy nicht None): **{with_setup}**")
+    st.write(f"Aktien ohne Setup: **{total - with_setup}**")
+
+    if "setup_quality" in df.columns:
+        q_counts = df["setup_quality"].value_counts()
+        st.write("Setup-Qualität Verteilung:")
+        for grade in ["A+", "A", "B", "C"]:
+            st.write(f"  {grade}: {q_counts.get(grade, 0)}")
+
+    if "trade_crv" in df.columns:
+        crv_vals = df["trade_crv"].dropna()
+        if len(crv_vals) > 0:
+            st.write(f"CRV — Median: {crv_vals.median():.2f}, Min: {crv_vals.min():.2f}, Max: {crv_vals.max():.2f}")
+
+    if "trade_risk_pct" in df.columns:
+        risk_vals = df["trade_risk_pct"].dropna()
+        if len(risk_vals) > 0:
+            st.write(f"Risiko% — Median: {risk_vals.median():.1f}%, Min: {risk_vals.min():.1f}%, Max: {risk_vals.max():.1f}%")
+
+    st.subheader("Top 100 Setups (JSON)")
+    st.caption("Kopiere den Text unten vollständig.")
+    records = top.where(top.notna(), None).to_dict(orient="records")
+    st.text_area("JSON", value=_json.dumps(records, indent=2, default=str), height=400)
+
+
 # =============================================================================
 # HAUPTNAVIGATION
 # =============================================================================
@@ -749,3 +813,5 @@ if st.session_state.page == "start":
     render_startseite()
 elif st.session_state.page == "detail":
     render_detailseite()
+elif st.session_state.page == "diagnose":
+    render_diagnose()
