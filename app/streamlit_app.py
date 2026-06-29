@@ -35,7 +35,7 @@ from config import RATING_THRESHOLDS
 from trading.recommendation_tracker import init_swing_trading_schema, save_swing_trade_recommendation
 from trading.trade_status import (
     determine_trade_status, ampel_for_status, rank_for_status,
-    has_required_trade_fields, crv_color,
+    has_required_trade_fields, crv_color, ema20_distance_pct,
 )
 
 # =============================================================================
@@ -640,7 +640,23 @@ def render_detailseite():
             st.info("Nicht bestimmbar.")
     with col3:
         st.metric("Signalalter", f"{breakout_age} Tage" if breakout_age is not None else "-")
-    
+
+    # Setup-Qualität A+/A/B/C
+    setup_quality = detail.get("setup_quality")
+    setup_quality_score = detail.get("setup_quality_score")
+    if setup_quality:
+        quality_colors = {"A+": "#1b5e20", "A": "#2e7d32", "B": "#f9a825", "C": "#c62828"}
+        q_color = quality_colors.get(setup_quality, "#95a5a6")
+        q_score_str = f" ({setup_quality_score}/100)" if setup_quality_score is not None else ""
+        st.markdown(
+            f'<div style="background-color:{q_color}20;border-left:4px solid {q_color};'
+            f'padding:0.5rem 1rem;border-radius:4px;margin:0.5rem 0;">'
+            f'<span style="font-weight:bold;color:{q_color};">Setup-Qualität: {setup_quality}</span>'
+            f'<span style="color:#666;font-size:0.85rem;">{q_score_str}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     st.divider()
     
     # Score-Aufschlsselung
