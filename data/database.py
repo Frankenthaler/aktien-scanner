@@ -116,6 +116,8 @@ def init_db() -> None:
                 trade_chance_pct    REAL,
                 trade_crv           REAL,
                 ema20               REAL,
+                setup_quality       TEXT,
+                setup_quality_score INTEGER,
 
                 created_at      TEXT DEFAULT (datetime('now')),
                 UNIQUE(ticker, date, signal_version)
@@ -146,6 +148,8 @@ def _migrate_add_missing_columns(conn: sqlite3.Connection) -> None:
         "trade_chance_pct": "REAL",
         "trade_crv": "REAL",
         "ema20": "REAL",
+        "setup_quality": "TEXT",
+        "setup_quality_score": "INTEGER",
     }
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(scores)").fetchall()}
     for col, col_type in required_columns.items():
@@ -307,7 +311,8 @@ def save_score(score_dict: dict) -> None:
                 sma50, sma200, rs_score,
                 breakout_flag, breakout_age,
                 regime, stop_loss, crv, atr14, atr_ratio, kursziel,
-                stop_buy, trade_risk_pct, trade_chance_pct, trade_crv, ema20
+                stop_buy, trade_risk_pct, trade_chance_pct, trade_crv, ema20,
+                setup_quality, setup_quality_score
             ) VALUES (
                 :ticker, :date, :signal_version, :data_source,
                 :filter_sma50,
@@ -316,7 +321,8 @@ def save_score(score_dict: dict) -> None:
                 :sma50, :sma200, :rs_score,
                 :breakout_flag, :breakout_age,
                 :regime, :stop_loss, :crv, :atr14, :atr_ratio, :kursziel,
-                :stop_buy, :trade_risk_pct, :trade_chance_pct, :trade_crv, :ema20
+                :stop_buy, :trade_risk_pct, :trade_chance_pct, :trade_crv, :ema20,
+                :setup_quality, :setup_quality_score
             )
         """, score_dict)
 
