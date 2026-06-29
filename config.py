@@ -147,6 +147,24 @@ TRADE_CRV_COLOR_STUFEN = [
 EMA20_PERIOD = 20
 MAX_DISTANCE_EMA20_PCT = 5.5
 
+
+# -----------------------------------------------------------------------------
+# Integrierter Setup-Generator (trading/setup_generator.py)
+# -----------------------------------------------------------------------------
+SETUP_LOOKBACK_SHORT     = 20    # Tage für Stop-Buy-Widerstand
+SETUP_LOOKBACK_LONG      = 60    # Tage für TP1-Widerstand
+SETUP_SB_ATR_FACTOR      = 0.5   # Stop-Buy = Widerstand + X × ATR
+SETUP_SL_ATR_FACTOR      = 2.0   # Stop-Loss Fallback = Stop-Buy - X × ATR
+SETUP_SL_SWING_BUFFER    = 0.3   # Stop-Loss = Swing-Tief - X × ATR
+SETUP_TP_ATR_FALLBACK    = 2.5   # TP1 Fallback = Stop-Buy + X × ATR (kein Deckel)
+SETUP_SWING_LOW_WINDOW   = 10    # Halbfenster für Swing-Tief-Suche (Handelstage)
+SETUP_MIN_RESISTANCE_TESTS = 2   # Mindestanzahl Tests für gültigen Widerstand
+SETUP_QUALITY_THRESHOLDS = {     # Setup-Qualität A+/A/B/C
+    "A+": 75,
+    "A":  58,
+    "B":  40,
+}
+
 # -----------------------------------------------------------------------------
 # Bewertungsstufen
 # -----------------------------------------------------------------------------
