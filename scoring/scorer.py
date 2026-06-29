@@ -121,11 +121,16 @@ def calculate_score(ticker: str, target_date: date, index_name: str) -> dict | N
     # Integrierter Setup-Generator: SB, SL (trade), TP1, CRV, Qualität
     # als zusammenhängendes System. Bezugspunkt immer Einstiegspreis (Stop-Buy).
     # KEIN Einfluss auf das gesperrte score_total/score_risk/crv-System.
-    setup = generate_trade_setup(
-        prices, atr14,
-        ema20=ema20,
-        breakout_age=breakout_age,
-    )
+    # try/except: Setup-Fehler dürfen Score-Berechnung nie unterbrechen.
+    try:
+        setup = generate_trade_setup(
+            prices, atr14,
+            ema20=ema20,
+            breakout_age=breakout_age,
+        )
+    except Exception as e:
+        logger.warning(f"{ticker}: generate_trade_setup Fehler: {e} — Setup-Felder werden None")
+        setup = {}
     stop_buy            = setup.get("stop_buy")
     trade_risk_pct      = setup.get("trade_risk_pct")
     trade_chance_pct    = setup.get("trade_chance_pct")
